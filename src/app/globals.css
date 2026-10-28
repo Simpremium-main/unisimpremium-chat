@@ -1,0 +1,249 @@
+@import "tailwindcss";
+
+/* `dark:` segue a classe .dark do next-themes (não a preferência do SO). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tokens de cor. Os valores ficam em :root / .dark e o @theme só aponta para
+ * as variáveis — com `@theme inline` contendo os valores, o Tailwind 4 os
+ * embute nas classes e o bloco .dark nunca tinha efeito (no escuro,
+ * bg-primary continuava o azul-marinho do claro, ~invisível sobre o fundo).
+ */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0.08 265);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0.165 254.624);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --primary-text: oklch(0.205 0.08 265);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.53 0.19 264);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.3 0 0);
+  --input: oklch(0.3 0 0);
+  --ring: oklch(0.623 0.214 259.8);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.3 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --primary-text: oklch(0.708 0.165 254.6);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button,
+  [role="button"],
+  a,
+  summary,
+  [type="button"],
+  [type="submit"],
+  [type="reset"] {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.8 0 0) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: oklch(0.8 0 0);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.7 0 0);
+  }
+  .dark .scrollbar-thin {
+    scrollbar-color: oklch(0.35 0 0) transparent;
+  }
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: oklch(0.35 0 0);
+  }
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.45 0 0);
+  }
+}
+
+/* No escuro, `text-primary` usa o tom claro (contraste 7,5:1 sobre o fundo);
+ * preenchimentos (bg-primary, border-primary) seguem o tom médio. */
+.dark .text-primary {
+  color: var(--primary-text);
+}
+
+/* Etiquetas com a cor escolhida pelo usuário (tags): no escuro o texto usa
+ * uma versão clareada da mesma cor — cores escuras somem no fundo escuro. */
+.chip-text {
+  color: var(--chip-color);
+}
+.dark .chip-text {
+  color: color-mix(in oklab, var(--chip-color) 55%, white);
+}
+
+/* ─── Animações ──────────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/*
+ * fill-mode `backwards`: o estado inicial vale só antes da animação e, ao
+ * terminar, não sobra `transform` — um transform permanente faria os filhos
+ * `position: fixed` (modais dentro das páginas) se posicionarem pelo
+ * conteúdo em vez da tela.
+ */
+@layer utilities {
+  /* Troca de página. */
+  .animate-page-in {
+    animation: fade-in-up 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  /* Mensagem nova no chat (enviada pela direita, recebida pela esquerda). */
+  .animate-msg-in {
+    animation: msg-in 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  /* Item que entra numa lista (conversas, cards...). */
+  .animate-item-in {
+    animation: fade-in-up 200ms ease-out backwards;
+  }
+  /* Modal: o fundo esmaece e o painel (último filho — o fundo escuro, quando
+   * é um elemento à parte, vem antes) cresce suavemente. */
+  .animate-overlay-in {
+    animation: fade-in 160ms ease-out both;
+  }
+  .animate-overlay-in > :last-child {
+    animation: panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  /* Painel lateral: o fundo esmaece e o painel desliza da direita. */
+  .animate-drawer-in {
+    animation: fade-in 160ms ease-out both;
+  }
+  .animate-drawer-in > :last-child {
+    animation: slide-in-right 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+}
+
+/* Quem pediu menos movimento no sistema não vê animações de entrada. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-in,
+  .animate-msg-in,
+  .animate-item-in,
+  .animate-overlay-in,
+  .animate-overlay-in > :last-child,
+  .animate-drawer-in,
+  .animate-drawer-in > :last-child {
+    animation: none;
+  }
+}
+
+/*
+ * iPhone (Safari) dá zoom na tela ao tocar num campo com letra menor que
+ * 16px. Em telas de toque os campos de digitação usam 16px — o zoom de
+ * pinça continua liberado (não mexemos no viewport).
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']),
+  textarea,
+  select,
+  [contenteditable='true'] {
+    font-size: max(16px, 1em);
+  }
+}

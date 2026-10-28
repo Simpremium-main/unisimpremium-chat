@@ -1,0 +1,78 @@
+import { Module, forwardRef } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
+import { AGENT_DEBOUNCE_QUEUE } from '../messaging/pipeline/agent-debounce.constants';
+import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from '../../database/prisma.module';
+import { LlmModule } from './llm/llm.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
+import { PlaybooksModule } from './playbooks/playbooks.module';
+import { ToolsModule } from './tools/tools.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { RealtimeModule } from '../realtime/realtime.module';
+import { ChannelHubModule } from '../channel-hub/channel-hub.module';
+import { PromptBuilderService } from './runner/prompt-builder.service';
+import { AiAgentRunnerService } from './runner/agent-runner.service';
+import { ModelRouterService } from './runner/model-router.service';
+import { AgentRunJanitorService } from './runner/agent-run-janitor.service';
+import { CatalogSyncService } from './runner/catalog-sync.service';
+import { MediaUrlResolverService } from './runner/media-url-resolver.service';
+import { AgentRouterService } from './router/agent-router.service';
+import { AgentsService } from './agents/agents.service';
+import { AgentsController } from './agents/agents.controller';
+import { ToolsCatalogService } from './catalog/tools.service';
+import { SkillsCatalogService } from './catalog/skills.service';
+import { AiCatalogController } from './catalog/catalog.controller';
+
+// ─── Fase 2 — AI Intelligence Layer ──────────────
+import { PromptsModule } from './prompts/prompts.module';
+import { ClassifierModule } from './classifier/classifier.module';
+import { ShortTermMemoryModule } from './memory/short-term/short-term.module';
+import { LongTermMemoryModule } from './memory/long-term/long-term.module';
+import { ConfirmationsModule } from './confirmations/confirmations.module';
+import { ConfirmationExecutorModule } from './confirmations/confirmation-executor.module';
+import { RagModule } from './rag/rag.module';
+import { EvalsModule } from './evals/evals.module';
+import { INBOX_PUSH_QUEUE } from '../push/inbox-push.job';
+
+@Module({
+  imports: [
+    ConfigModule,
+    PrismaModule,
+    LlmModule,
+    PlaybooksModule,
+    KnowledgeModule,
+    // O runner re-arma o debounce quando chega mensagem durante um run.
+    BullModule.registerQueue({ name: AGENT_DEBOUNCE_QUEUE }),
+    // Fim do run (transferiu, pediu ajuda): push no celular se a conversa
+    // entrou numa inbox de push.
+    BullModule.registerQueue({ name: INBOX_PUSH_QUEUE }),
+    ToolsModule,
+    NotificationsModule,
+    RealtimeModule,
+    forwardRef(() => ChannelHubModule),
+    PromptsModule,
+    ClassifierModule,
+    ShortTermMemoryModule,
+    LongTermMemoryModule,
+    ConfirmationsModule,
+    ConfirmationExecutorModule,
+    RagModule,
+    EvalsModule,
+  ],
+  controllers: [AgentsController, AiCatalogController],
+  providers: [
+    PromptBuilderService,
+    AiAgentRunnerService,
+    ModelRouterService,
+    AgentRunJanitorService,
+    AgentRouterService,
+    AgentsService,
+    ToolsCatalogService,
+    SkillsCatalogService,
+    CatalogSyncService,
+    MediaUrlResolverService,
+  ],
+  // ToolsModule: CustomerOrdersService (painel "Pedidos" do inbox).
+  exports: [AiAgentRunnerService, AgentRouterService, ToolsModule],
+})
+export class AiAgentsModule {}

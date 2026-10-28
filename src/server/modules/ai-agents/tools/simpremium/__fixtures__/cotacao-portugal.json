@@ -1,0 +1,324 @@
+{
+ "days": 7,
+ "countries": [
+  "Portugal"
+ ],
+ "rate": 5.0383,
+ "results": [
+  {
+   "allowance": "1GB",
+   "type": "virtual",
+   "totalUSD": 6.95,
+   "totalBRL": 35.02,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "1GB",
+   "type": "virtual",
+   "totalUSD": 7.95,
+   "totalBRL": 40.05,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "3GB",
+   "type": "virtual",
+   "totalUSD": 8.95,
+   "totalBRL": 45.09,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "3GB",
+   "type": "virtual",
+   "totalUSD": 10.95,
+   "totalBRL": 55.17,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "3GB",
+   "type": "virtual",
+   "totalUSD": 10.95,
+   "totalBRL": 55.17,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "5GB",
+   "type": "virtual",
+   "totalUSD": 15.95,
+   "totalBRL": 80.36,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "5GB",
+   "type": "virtual",
+   "totalUSD": 15.95,
+   "totalBRL": 80.36,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "5GB",
+   "type": "virtual",
+   "totalUSD": 15.95,
+   "totalBRL": 80.36,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "3GB",
+   "type": "virtual",
+   "totalUSD": 21.95,
+   "totalBRL": 110.59,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "10GB",
+   "type": "virtual",
+   "totalUSD": 25.95,
+   "totalBRL": 130.74,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "10GB",
+   "type": "virtual",
+   "totalUSD": 25.95,
+   "totalBRL": 130.74,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "1GB/dia",
+   "type": "virtual",
+   "totalUSD": 28.95,
+   "totalBRL": 145.86,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "1GB/dia",
+   "type": "virtual",
+   "totalUSD": 28.95,
+   "totalBRL": 145.86,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "1GB/dia",
+   "type": "virtual",
+   "totalUSD": 29.95,
+   "totalBRL": 150.9,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "5GB",
+   "type": "virtual",
+   "totalUSD": 29.95,
+   "totalBRL": 150.9,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "1GB/dia",
+   "type": "virtual",
+   "totalUSD": 30.95,
+   "totalBRL": 155.94,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "3GB",
+   "type": "virtual",
+   "totalUSD": 30.95,
+   "totalBRL": 155.94,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "2GB/dia",
+   "type": "virtual",
+   "totalUSD": 32.95,
+   "totalBRL": 166.01,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "20GB",
+   "type": "virtual",
+   "totalUSD": 35.95,
+   "totalBRL": 181.13,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "20GB",
+   "type": "virtual",
+   "totalUSD": 35.95,
+   "totalBRL": 181.13,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "Ilimitado",
+   "type": "virtual",
+   "totalUSD": 36.95,
+   "totalBRL": 186.17,
+   "raw": {
+    "calls": "Sim, ligação local e para o Brasil"
+   }
+  },
+  {
+   "allowance": "2GB/dia",
+   "type": "virtual",
+   "totalUSD": 37.95,
+   "totalBRL": 191.2,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "2GB/dia",
+   "type": "virtual",
+   "totalUSD": 37.95,
+   "totalBRL": 191.2,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "2GB/dia",
+   "type": "virtual",
+   "totalUSD": 37.95,
+   "totalBRL": 191.2,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "5GB",
+   "type": "virtual",
+   "totalUSD": 40.95,
+   "totalBRL": 206.32,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "500MB/dia",
+   "type": "virtual",
+   "totalUSD": 44.95,
+   "totalBRL": 226.47,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "10GB",
+   "type": "virtual",
+   "totalUSD": 44.95,
+   "totalBRL": 226.47,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "Ilimitado",
+   "type": "virtual",
+   "totalUSD": 45.95,
+   "totalBRL": 231.51,
+   "raw": {
+    "calls": "Sim, ligação local e para o Brasil"
+   }
+  },
+  {
+   "allowance": "30GB",
+   "type": "virtual",
+   "totalUSD": 45.95,
+   "totalBRL": 231.51,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "1GB/dia",
+   "type": "virtual",
+   "totalUSD": 45.95,
+   "totalBRL": 231.51,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "30GB",
+   "type": "virtual",
+   "totalUSD": 47.95,
+   "totalBRL": 241.59,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "50GB",
+   "type": "virtual",
+   "totalUSD": 57.95,
+   "totalBRL": 291.97,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "50GB",
+   "type": "virtual",
+   "totalUSD": 57.95,
+   "totalBRL": 291.97,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "10GB",
+   "type": "virtual",
+   "totalUSD": 70.95,
+   "totalBRL": 357.47,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "20GB",
+   "type": "virtual",
+   "totalUSD": 84.95,
+   "totalBRL": 428,
+   "raw": {
+    "calls": "Não"
+   }
+  }
+ ]
+}

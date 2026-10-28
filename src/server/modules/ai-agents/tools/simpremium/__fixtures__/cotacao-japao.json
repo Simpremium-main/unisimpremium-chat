@@ -1,0 +1,144 @@
+{
+ "days": 10,
+ "countries": [
+  "Japão"
+ ],
+ "rate": 5.0383,
+ "results": [
+  {
+   "allowance": "1GB",
+   "type": "virtual",
+   "totalUSD": 9.95,
+   "totalBRL": 50.13,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "3GB",
+   "type": "virtual",
+   "totalUSD": 12.95,
+   "totalBRL": 65.25,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "3GB",
+   "type": "virtual",
+   "totalUSD": 13.95,
+   "totalBRL": 70.28,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "5GB",
+   "type": "virtual",
+   "totalUSD": 17.95,
+   "totalBRL": 90.44,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "5GB",
+   "type": "virtual",
+   "totalUSD": 18.95,
+   "totalBRL": 95.48,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "10GB",
+   "type": "virtual",
+   "totalUSD": 25.95,
+   "totalBRL": 130.74,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "10GB",
+   "type": "virtual",
+   "totalUSD": 27.95,
+   "totalBRL": 140.82,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "1GB/dia",
+   "type": "virtual",
+   "totalUSD": 29.95,
+   "totalBRL": 150.9,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "2GB/dia",
+   "type": "virtual",
+   "totalUSD": 34.95,
+   "totalBRL": 176.09,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "1GB/dia",
+   "type": "virtual",
+   "totalUSD": 34.95,
+   "totalBRL": 176.09,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "2GB/dia",
+   "type": "virtual",
+   "totalUSD": 38.95,
+   "totalBRL": 196.24,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "20GB",
+   "type": "virtual",
+   "totalUSD": 41.95,
+   "totalBRL": 211.36,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "20GB",
+   "type": "virtual",
+   "totalUSD": 42.95,
+   "totalBRL": 216.39,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "500MB/dia",
+   "type": "virtual",
+   "totalUSD": 50.95,
+   "totalBRL": 256.7,
+   "raw": {
+    "calls": "Não"
+   }
+  },
+  {
+   "allowance": "Ilimitado",
+   "type": "virtual",
+   "totalUSD": 51.95,
+   "totalBRL": 261.74,
+   "raw": {
+    "calls": "Sim, ligação local e para o Brasil"
+   }
+  }
+ ]
+}

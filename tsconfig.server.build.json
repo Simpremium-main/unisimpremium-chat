@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.server.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./.server-build",
+    "rootDir": "./src/server",
+    "sourceMap": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./.server-build/.tsbuildinfo"
+  },
+  "include": ["src/server/**/*"],
+  "exclude": ["src/server/**/*.spec.ts"]
+}
