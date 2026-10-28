@@ -14,7 +14,7 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- Reagendar é idempotente: remove o job anterior com o mesmo nome.
-SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname IN ('unisimpremium-tick', 'chat-bullq-tick');
+SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'unisimpremium-tick';
 
 SELECT cron.schedule(
   'unisimpremium-tick',

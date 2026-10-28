@@ -585,7 +585,7 @@ export class ConversationsService {
 
     // Busca na memória (RAG): a tabela só existe onde o pgvector foi ligado.
     const [{ exists }] = await this.prisma.$queryRaw<Array<{ exists: boolean }>>`
-      SELECT to_regclass('public.ai_vector_entries') IS NOT NULL AS exists`;
+      SELECT to_regclass('ai_vector_entries') IS NOT NULL AS exists`;
     if (exists) {
       await this.prisma.$executeRaw`
         DELETE FROM ai_vector_entries WHERE conversation_id = ${id} OR contact_id = ${conversation.contactId}`;

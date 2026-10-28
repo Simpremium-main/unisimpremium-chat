@@ -5,8 +5,8 @@ const prisma = new PrismaClient();
 
 async function main() {
   const adminEmail = 'admin@simpremium.com.br';
-  const adminPassword = 'Admin@123';
-  const adminName = 'Admin Simpremium';
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin@123';
+  const adminName = 'Admin UniSimpremium';
 
   const existing = await prisma.user.findUnique({
     where: { email: adminEmail },
@@ -29,11 +29,11 @@ async function main() {
       },
     });
 
-    const slug = `simpremium-${Date.now().toString(36)}`;
+    const slug = 'unisimpremium';
 
     const organization = await tx.organization.create({
       data: {
-        name: 'SIMPREMIUM',
+        name: 'UniSimpremium',
         slug,
         plan: 'enterprise',
         settings: {

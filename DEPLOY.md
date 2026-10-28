@@ -27,6 +27,14 @@ Um único projeto Next.js com o front, a API (NestJS) e o servidor MCP.
 - **MCP**: sem sessão em memória e sem o transporte SSE legado (não funcionam em serverless).
 - **Cadastro só por convite**: `/register` sem convite é recusado (403). Novos usuários entram pelo link gerado em Configurações → Membros. `ALLOW_PUBLIC_SIGNUP=true` (+ `NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP=true`) reabre o cadastro livre.
 
+## Banco: mesmo Supabase do Simpremium Chat, schema próprio
+
+O UniSimpremium usa o mesmo projeto Supabase do Simpremium Chat, mas com dados
+separados: as tabelas ficam no schema `unisimpremium` (o chat antigo fica no
+`public`). O app conecta com o usuário `unisimpremium`, que só enxerga o seu
+schema (`supabase/schema.sql`). Uploads vão para o bucket `unisimpremium-uploads`
+e o cron usa o job `unisimpremium-tick`, sem mexer nos do chat antigo.
+
 ## Deploy
 
 ### 1. GitHub
