@@ -30,10 +30,12 @@ import {
   MessageContentType as PrismaContentType,
   MessageStatus,
   ConversationStatus,
+  Message,
   Prisma,
 } from '@prisma/client';
 import { trackBackground } from '../../../runtime/background';
 import { INBOX_PUSH_QUEUE, inboxPushJob } from '../../push/inbox-push.job';
+import { groupShouldTrigger, ownerNumber } from './group-trigger';
 
 interface InboundJobData {
   channelId: string;
@@ -597,6 +599,12 @@ export class InboundMessageProcessor extends WorkerHost {
       return;
     }
 
+    // Grupo: só quando a mensagem é com a IA (menção, resposta a ela ou pedido).
+    if (conversation.isGroup && !(await this.isGroupTrigger(triggerMessage))) {
+      this.logger.debug(`AI skipped for group conv ${conversationId}: not addressed`);
+      return;
+    }
+
     await this.scheduleAgentRun(conversationId, triggerMessageId);
   }
 
@@ -690,14 +698,16 @@ export class InboundMessageProcessor extends WorkerHost {
       // Always run against the LATEST actionable inbound — exclude
       // reactions/system events that arrived during the debounce window.
       // Otherwise the agent answers the 👍 instead of the real message.
-      const latestInbound = await this.prisma.message.findFirst({
-        where: {
-          conversationId,
-          direction: 'INBOUND',
-          type: { notIn: NON_TRIGGERING_MESSAGE_TYPES },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      const latestInbound = conv.isGroup
+        ? await this.latestGroupTrigger(conversationId)
+        : await this.prisma.message.findFirst({
+            where: {
+              conversationId,
+              direction: 'INBOUND',
+              type: { notIn: NON_TRIGGERING_MESSAGE_TYPES },
+            },
+            orderBy: { createdAt: 'desc' },
+          });
       if (!latestInbound) {
         this.logger.debug(
           `AI skipped after debounce for conv ${conversationId}: no actionable inbound`,
@@ -742,6 +752,52 @@ export class InboundMessageProcessor extends WorkerHost {
         await this.scheduleAgentRun(conversationId, 'followup');
       }
     }
+  }
+
+  /** A mensagem do grupo é com a IA? (ver group-trigger.ts) */
+  private async isGroupTrigger(message: Message): Promise<boolean> {
+    const content = (message.content ?? {}) as { text?: unknown; caption?: unknown };
+    const text = [content.text, content.caption].find((v) => typeof v === 'string') as string | undefined;
+    const meta = (message.metadata ?? {}) as { rawPayload?: unknown; replyTo?: { externalMessageId?: string } | null };
+    const quotedId = meta.replyTo?.externalMessageId;
+    const repliesToUs = quotedId
+      ? (await this.prisma.message.count({
+          where: { conversationId: message.conversationId, externalId: quotedId, direction: MessageDirection.OUTBOUND },
+        })) > 0
+      : false;
+    return groupShouldTrigger({
+      text: text ?? '',
+      rawPayload: meta.rawPayload,
+      ownNumber: ownerNumber(meta.rawPayload),
+      repliesToUs,
+    });
+  }
+
+  /**
+   * Grupo: a mensagem mais recente que é com a IA e que chegou depois da
+   * última resposta nossa (a conversa solta do grupo não dispara nem é
+   * respondida de novo no re-agendamento).
+   */
+  private async latestGroupTrigger(conversationId: string): Promise<Message | null> {
+    const lastOutbound = await this.prisma.message.findFirst({
+      where: { conversationId, direction: MessageDirection.OUTBOUND },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    const candidates = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        direction: MessageDirection.INBOUND,
+        type: { notIn: NON_TRIGGERING_MESSAGE_TYPES },
+        ...(lastOutbound ? { createdAt: { gt: lastOutbound.createdAt } } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    for (const m of candidates) {
+      if (await this.isGroupTrigger(m)) return m;
+    }
+    return null;
   }
 
   private async processStatus(data: StatusJobData): Promise<any> {

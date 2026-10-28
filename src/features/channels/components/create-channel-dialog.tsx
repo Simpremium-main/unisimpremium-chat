@@ -9,7 +9,7 @@ import { Loader2, X, Copy, Check } from 'lucide-react';
 import { channelsService, type ChannelType } from '../services/channels.service';
 import { ZappfyIcon, MetaIcon, InstagramIcon, GmailIcon } from '@/components/ui/icons';
 
-const channelTypes: { value: ChannelType; label: string; icon: React.ElementType; color: string; description: string }[] = [
+const allChannelTypes: { value: ChannelType; label: string; icon: React.ElementType; color: string; description: string }[] = [
   {
     value: 'WHATSAPP_ZAPPFY',
     label: 'WhatsApp (Zappfy)',
@@ -39,6 +39,10 @@ const channelTypes: { value: ChannelType; label: string; icon: React.ElementType
     description: 'Emails da caixa Google viram conversas — via polling',
   },
 ];
+
+// Grupos de WhatsApp só funcionam pelo Zappfy (a API oficial da Meta não
+// entra em grupos). Os outros tipos ficam fora da criação.
+const channelTypes = allChannelTypes.filter((ct) => ct.value === 'WHATSAPP_ZAPPFY');
 
 const zappfySchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),

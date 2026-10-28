@@ -7,13 +7,12 @@ import {
   ChevronsUpDown,
   Building2,
   ChevronUp,
-  Zap,
-  FolderKanban,
+  UsersRound,
+  PackageSearch,
   Sun,
   Moon,
   Monitor,
   Check,
-  Workflow,
   Bell,
   BellOff,
 } from 'lucide-react';
@@ -21,10 +20,7 @@ import { toast } from 'sonner';
 import { usePushNotifications, removeThisDevice, sendTestPush } from '@/features/push/push';
 import { useTheme } from 'next-themes';
 import { InboxTree } from '@/features/inbox-views/components/inbox-tree';
-import { TagsTree } from '@/features/inbox-views/components/tags-tree';
 import { JarvisTree } from '@/features/ai-agents/components/jarvis-tree';
-import { PipelinesTree } from '@/features/pipelines/components/pipelines-tree';
-import { useOrgFeatures } from '@/features/settings/hooks/use-org-features';
 
 import { useAuthStore } from '@/stores/auth-store';
 import { useAccess } from '@/features/access/use-access';
@@ -48,19 +44,19 @@ import {
   DropdownDivider,
 } from '@/components/ui/dropdown';
 
+// UniSimpremium: grupos de WhatsApp + pedidos consultados pela IA.
+// Fora do menu (páginas continuam no endereço): Projetos, Automações,
+// Chatbot, Pipelines e Tags.
 const navItems = [
+  { href: '/groups', label: 'Grupos', icon: UsersRound, page: 'inbox' },
+  { href: '/order-queries', label: 'Pedidos consultados', icon: PackageSearch, page: 'inbox' },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, page: 'dashboard' },
-  { href: '/projects', label: 'Projetos', icon: FolderKanban, page: 'projects' },
-  { href: '/automations', label: 'Automações', icon: Zap, page: 'automations' },
-  // Robô de atendimento (fluxo com menus). Mesma permissão do Jarvis.
-  { href: '/chatbot', label: 'Chatbot', icon: Workflow, page: 'jarvis' },
 ];
 
 export function AppSidebar() {
   const { user, organizations, activeOrgId, setActiveOrg, logout } =
     useAuthStore();
   const activeOrg = organizations.find((o) => o.id === activeOrgId);
-  const { pipelinesEnabled, projectsEnabled } = useOrgFeatures();
   // Perfil de acesso do atendente: só aparece o que ele libera.
   const { canPage } = useAccess();
   const settingsHref = canPage('settings')
@@ -121,16 +117,14 @@ export function AppSidebar() {
 
       <SidebarBody>
         <SidebarSection>
-          {canPage('inbox') && <InboxTree />}
-          {canPage('inbox') && <TagsTree />}
-          {pipelinesEnabled && canPage('pipelines') && <PipelinesTree />}
-          {canPage('jarvis') && <JarvisTree />}
-          {navItems.filter((item) => canPage(item.page) && (item.page !== 'projects' || projectsEnabled)).map((item) => (
+          {navItems.filter((item) => canPage(item.page)).map((item) => (
             <SidebarItem key={item.href} href={item.href}>
               <item.icon className="size-5" />
               <SidebarLabel>{item.label}</SidebarLabel>
             </SidebarItem>
           ))}
+          {canPage('inbox') && <InboxTree />}
+          {canPage('jarvis') && <JarvisTree />}
         </SidebarSection>
 
         <SidebarSpacer />

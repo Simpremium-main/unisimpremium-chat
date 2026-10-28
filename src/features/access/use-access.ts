@@ -9,6 +9,8 @@ const ROUTE_PAGES: Array<[string, string]> = [
   ['/settings/quick-replies', 'inbox'],
   ['/settings', 'settings'],
   ['/inbox', 'inbox'],
+  ['/groups', 'inbox'],
+  ['/order-queries', 'inbox'],
   ['/contacts', 'contacts'],
   ['/pipelines', 'pipelines'],
   ['/dashboard', 'dashboard'],
@@ -20,7 +22,7 @@ const ROUTE_PAGES: Array<[string, string]> = [
 
 /** Ordem de preferência da página inicial quando a atual não é permitida. */
 const LANDING: Array<[string, string]> = [
-  ['inbox', '/inbox'],
+  ['inbox', '/groups'],
   ['dashboard', '/dashboard'],
   ['contacts', '/contacts'],
   ['pipelines', '/pipelines'],

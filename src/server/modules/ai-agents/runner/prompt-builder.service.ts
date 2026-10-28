@@ -53,6 +53,16 @@ export interface PromptContext {
   turnHints?: string[];
 }
 
+/** Conversa de grupo de WhatsApp (ver group-trigger.ts). */
+const GROUP_NOTE = `
+
+═══ Grupo de WhatsApp ═══
+- Esta conversa é um GRUPO. Cada mensagem vem com o nome de quem escreveu entre colchetes.
+- Responda SÓ à última pergunta feita para você (pedido, status, entrega, ativação). Ignore a conversa entre os participantes.
+- Seja curto: uma mensagem, direto ao status. Chame a pessoa pelo nome quando houver mais de uma falando.
+- Pedido: use consultar_pedido com o número informado. Sem número, peça o número do pedido.
+- Nunca mostre e-mail, telefone, CPF, endereço ou valor no grupo.`;
+
 /**
  * Primeira resposta da conversa: o cliente costuma chegar já pedindo algo
  * ("orçamento para EUA…") e a IA pulava a saudação e ia direto ao ponto.
@@ -495,7 +505,8 @@ export class PromptBuilderService {
       renderKnowledgeSection(ctx.knowledge ?? []) +
       (ctx.firstReply ? FIRST_REPLY_NOTE : '') +
       (ctx.customerLanguage ? languageNote(ctx.customerLanguage) : '') +
-      (ctx.turnHints?.length ? `\n\n═══ Atenção neste turno ═══\n${ctx.turnHints.map((h) => `- ${h}`).join('\n')}` : '');
+      (ctx.turnHints?.length ? `\n\n═══ Atenção neste turno ═══\n${ctx.turnHints.map((h) => `- ${h}`).join('\n')}` : '') +
+      (ctx.conversation.isGroup ? GROUP_NOTE : '');
 
     const messages: LlmMessage[] = [
       {
@@ -535,6 +546,10 @@ export class PromptBuilderService {
       prevAt = at;
       const parts = this.extractContentParts(m, ctx.mediaUrls, role);
       if (parts.length === 0) continue;
+      // Grupo: várias pessoas falam — a IA precisa saber quem perguntou.
+      if (ctx.conversation.isGroup && role === 'user' && m.senderName) {
+        parts.unshift({ type: 'text', text: `[${m.senderName}]:` });
+      }
       if (role === 'user' && gapHours >= CONVERSATION_GAP_HOURS) {
         parts.unshift({ type: 'text', text: gapMarker(gapHours) });
       }

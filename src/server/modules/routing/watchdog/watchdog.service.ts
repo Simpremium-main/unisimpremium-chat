@@ -39,6 +39,7 @@ export class WatchdogService {
    *  - status=WAITING (esperando cliente, nada a fazer)
    *  - status=CLOSED (já fechada)
    *  - aiEnabled=false explícito (humano desligou IA — sagrado)
+   *  - conversa de grupo
    */
   async scheduleCheck(conversationId: string): Promise<void> {
     const conversation = await this.prisma.conversation.findUnique({
@@ -55,6 +56,8 @@ export class WatchdogService {
     });
 
     if (!conversation) return;
+    // Grupo: a IA responde só quando é chamada; conversa solta não é "presa".
+    if (conversation.isGroup) return;
     if (!conversation.organization.watchdogEnabled) return;
     if (conversation.aiEnabled === false) {
       // Humano desativou IA explicitamente — watchdog respeita.

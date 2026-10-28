@@ -2,22 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserCog, Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, Layers, KanbanSquare, Zap, FolderKanban, Timer } from 'lucide-react';
+import { UserCog, Radio, Users, Bell, Building2, KeyRound, Sparkles, Zap } from 'lucide-react';
 import { useAccess } from '@/features/access/use-access';
 import { useAuthStore } from '@/stores/auth-store';
 
+// UniSimpremium = IA respondendo status de pedido em grupos de WhatsApp.
+// Abas fora desse uso ficam escondidas (as páginas continuam no endereço):
+// Segmentos, Cobrança de cotação, Pipeline, Projetos, Contatos e Tags.
 const tabs = [
   { href: '/settings/channels', label: 'Canais', icon: Radio },
-  { href: '/settings/segments', label: 'Segmentos', icon: Layers },
   { href: '/settings/general', label: 'Geral', icon: Building2 },
   { href: '/settings/ai', label: 'IA', icon: Sparkles },
-  { href: '/settings/quote-followup', label: 'Cobrança de cotação', icon: Timer, adminOnly: true },
-  { href: '/settings/pipeline', label: 'Pipeline', icon: KanbanSquare },
-  { href: '/settings/projects', label: 'Projetos', icon: FolderKanban },
   { href: '/settings/members', label: 'Membros', icon: Users },
   { href: '/settings/access', label: 'Perfis de acesso', icon: UserCog, adminOnly: true },
-  { href: '/settings/contacts', label: 'Contatos', icon: BookUser },
-  { href: '/settings/tags', label: 'Tags', icon: Tags },
   { href: '/settings/quick-replies', label: 'Respostas rápidas', icon: Zap },
   { href: '/settings/notifications', label: 'Notificações', icon: Bell },
   { href: '/settings/api-keys', label: 'API Keys', icon: KeyRound },

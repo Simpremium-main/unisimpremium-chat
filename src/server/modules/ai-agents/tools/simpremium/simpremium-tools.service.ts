@@ -803,6 +803,15 @@ export class SimpremiumToolsService {
       return { output: { ok: false, pedido_nao_encontrado: orderId, instrucao: ORDER_NOT_FOUND_INSTRUCTION }, audit };
     }
 
+    // Grupo: o número do pedido basta — quem conectou o número escolheu os
+    // grupos. A resposta vai sem dados de contato (e-mail, telefone, CPF, endereço).
+    if (orderId && !missingNumber && (await this.isGroup(ctx))) {
+      await markVerified(ctx.conversationId, orders.flatMap(orderIds));
+      const { output, hidden } = await this.withoutStaleStatus(ctx, withoutContactData(raw));
+      const formatted = formatPedido(prepareOrderOutput(output));
+      return { ...text(hidden.length ? `${formatted}\n\n${staleStatusNote(hidden)}` : formatted), audit };
+    }
+
     const check = checkOrderAccess(checkInput, raw, phone, claims, extraIccids);
     if (!check.ok) {
       this.logger.log(`consultar_pedido ${input.orderId ?? ''}: identidade não confirmada (conv ${ctx.conversationId})`);
@@ -969,6 +978,14 @@ export class SimpremiumToolsService {
     }
   }
 
+  private async isGroup(ctx: ToolContext): Promise<boolean> {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: ctx.conversationId },
+      select: { isGroup: true },
+    });
+    return !!conv?.isGroup;
+  }
+
   /** Consulta por número de pedido só depois de confirmar que o pedido é do cliente. */
   private ownOrderOnly(handler: Handler): Handler {
     return async (input, ctx) => {
@@ -976,7 +993,12 @@ export class SimpremiumToolsService {
       if (orderId && !(await verifiedOrders(ctx.conversationId)).has(orderId)) {
         return { output: UNVERIFIED_ORDER_OUTPUT };
       }
-      return handler(orderId ? { ...input, orderId } : input, ctx);
+      const result = await handler(orderId ? { ...input, orderId } : input, ctx);
+      // Grupo: entrega/seguro sem endereço e contato do comprador.
+      if (result.output && typeof result.output === 'object' && (await this.isGroup(ctx))) {
+        return { ...result, output: withoutContactData(result.output) };
+      }
+      return result;
     };
   }
 
@@ -1291,6 +1313,21 @@ export function staleRepeatedQuote(
 
   const period = quote.text.match(/Per[ií]odo da viagem:?\*?:?\s*([^\n]+)/i)?.[1]?.trim() ?? null;
   return { countries: shown, period, hoursAgo: Math.round(hoursAgo) };
+}
+
+/** Campos de contato do comprador — não vão para a IA em grupo. */
+const CONTACT_KEY_RE = /e-?mail|phone|telefone|celular|whatsapp|cpf|cnpj|document|address|endereco|endereço|billing|shipping|cep|postcode|postal/i;
+
+/** Pedido sem os dados de contato do comprador (em qualquer nível). */
+export function withoutContactData<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(withoutContactData) as T;
+  if (!value || typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (CONTACT_KEY_RE.test(k)) continue;
+    out[k] = withoutContactData(v);
+  }
+  return out as T;
 }
 
 function text(value: string): ToolResult {

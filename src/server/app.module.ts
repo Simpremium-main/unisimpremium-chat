@@ -28,6 +28,7 @@ import { SegmentsModule } from './modules/segments/segments.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { SalesRecoveryModule } from './modules/sales-recovery/sales-recovery.module';
 import { AutomationsModule } from './modules/automations/automations.module';
+import { GroupMonitorModule } from './modules/group-monitor/group-monitor.module';
 // ProductsModule removido — catálogo agora vive no Trivapp e é consumido
 // via skill HTTP getProductPitch + CatalogSyncService. Tabela `products`
 // fica órfã no DB (cleanup futuro). Não importar aqui.
@@ -68,6 +69,7 @@ import { AutomationsModule } from './modules/automations/automations.module';
     SegmentsModule,
     ProjectsModule,
     SalesRecoveryModule,
+    GroupMonitorModule,
   ],
 })
 export class AppModule {}
