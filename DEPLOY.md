@@ -40,7 +40,7 @@ e o cron usa o job `unisimpremium-tick`, sem mexer nos do chat antigo.
 ### 1. GitHub
 Crie um repositório **privado** e envie este projeto:
 ```bash
-git remote add origin git@github.com:Simpremium-main/unisimpremium.git
+git remote add origin git@github.com:Simpremium-main/unisimpremium-chat.git
 git push -u origin main
 ```
 
