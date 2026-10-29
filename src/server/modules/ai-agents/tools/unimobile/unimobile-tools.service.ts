@@ -345,7 +345,7 @@ export class UnimobileToolsService {
 
   /**
    * Registra a ação e manda no grupo o pedido de confirmação com um código.
-   * Nada é executado aqui: só quando quem pediu responder "SIM <código>".
+   * Nada é executado aqui: só quando alguém responder "SIM <código>".
    */
   private action(name: string, description: string, parameters: Obj): AiTool {
     const full = `${description} Não pergunte "confirma?": a ferramenta registra a solicitação e já manda no grupo a mensagem com o código; a ação só acontece quando alguém do grupo responder SIM + código. Com várias solicitações, chame uma vez para cada uma.`;
