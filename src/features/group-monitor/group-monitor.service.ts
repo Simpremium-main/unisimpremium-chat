@@ -35,6 +35,23 @@ export interface GroupRequest {
   status: RequestStatus;
   reply: { text: string | null; at: string; by: string | null } | null;
   lookups: Array<{ tool: string; orderId: string | null; outcome: QueryOutcome; status: string | null }>;
+  actions: GroupAction[];
+}
+
+export type ActionStatus = 'awaiting-confirmation' | 'running' | 'done' | 'failed' | 'expired';
+
+/** Ação da Uni Mobile pedida no grupo (confirmada com "SIM <código>"). */
+export interface GroupAction {
+  id: string;
+  tool: string;
+  label: string;
+  code: string | null;
+  requester: string | null;
+  iccid: string | null;
+  status: ActionStatus;
+  createdAt: string;
+  confirmedAt: string | null;
+  error: string | null;
 }
 
 export interface RequestsPage {

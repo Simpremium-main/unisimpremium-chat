@@ -36,6 +36,7 @@ import {
 import { trackBackground } from '../../../runtime/background';
 import { INBOX_PUSH_QUEUE, inboxPushJob } from '../../push/inbox-push.job';
 import { groupShouldTrigger, ownerNumber } from './group-trigger';
+import { UnimobileToolsService } from '../../ai-agents/tools/unimobile/unimobile-tools.service';
 
 interface InboundJobData {
   channelId: string;
@@ -113,6 +114,7 @@ export class InboundMessageProcessor extends WorkerHost {
     private readonly watchdog: WatchdogService,
     private readonly salesRecovery: SalesRecoveryService,
     private readonly fsm: ConversationFsmService,
+    private readonly unimobile: UnimobileToolsService,
     @InjectQueue('chatbot-processor') private readonly chatbotQueue: Queue,
     @InjectQueue(AGENT_DEBOUNCE_QUEUE) private readonly agentDebounceQueue: Queue,
     @InjectQueue(INBOX_PUSH_QUEUE) private readonly inboxPushQueue: Queue,
@@ -367,6 +369,9 @@ export class InboundMessageProcessor extends WorkerHost {
               );
             }
           }
+          // "SIM 4821": confirmação de uma ação da Uni Mobile — o sistema
+          // confere e executa; a IA não roda nessa mensagem.
+          if (await this.unimobile.handleConfirmation(savedMessage.id)) return;
           if (!routedToBot) await this.tryAiAgent(conversationId, savedMessage.id);
         };
         trackBackground(dispatch().catch((err) =>

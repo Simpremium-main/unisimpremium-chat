@@ -44,6 +44,11 @@ describe('groupShouldTrigger', () => {
     expect(groupShouldTrigger({ text: 'o eSIM não instala' })).toBe(true);
   });
 
+  it('"SIM 4821" é confirmação, não pergunta', () => {
+    expect(groupShouldTrigger({ text: 'SIM 4821' })).toBe(false);
+    expect(groupShouldTrigger({ text: 'sim, 4821', repliesToUs: true })).toBe(false);
+  });
+
   it('responde quem cita mensagem nossa', () => {
     expect(groupShouldTrigger({ text: 'e agora?', repliesToUs: true })).toBe(true);
   });

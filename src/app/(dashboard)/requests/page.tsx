@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, ClipboardList, MessageSquare, PackageSearch, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, ClipboardList, MessageSquare, PackageSearch, Search, X, Zap } from 'lucide-react';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import {
   formatWhen,
   groupMonitorService,
+  type ActionStatus,
   type GroupRequest,
   type QueryOutcome,
   type RequestStatus,
@@ -18,6 +19,14 @@ const STATUS: Record<RequestStatus, { label: string; className: string }> = {
   'answered-ai': { label: 'Respondida pela IA', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' },
   'answered-human': { label: 'Respondida pela equipe', className: 'bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300' },
   pending: { label: 'Sem resposta', className: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
+};
+
+const ACTION_STATUS: Record<ActionStatus, { label: string; className: string }> = {
+  'awaiting-confirmation': { label: 'Aguardando confirmação', className: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
+  running: { label: 'Executando', className: 'bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300' },
+  done: { label: 'Concluída', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' },
+  failed: { label: 'Falhou', className: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' },
+  expired: { label: 'Expirou sem confirmação', className: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300' },
 };
 
 const OUTCOME: Record<QueryOutcome, string> = {
@@ -209,6 +218,24 @@ function RequestRow({ request: r }: { request: GroupRequest }) {
           <p className={`mt-1 text-sm text-zinc-700 dark:text-zinc-200 ${open ? 'whitespace-pre-wrap' : 'truncate'}`}>
             {r.text ?? '[mídia]'}
           </p>
+          {r.actions.length > 0 && (
+            <ul className="mt-1.5 space-y-1">
+              {r.actions.map((a) => {
+                const st = ACTION_STATUS[a.status];
+                return (
+                  <li key={a.id} className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                    <Zap className="h-3.5 w-3.5 text-zinc-400" />
+                    <span>{a.label}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${st.className}`}>{st.label}</span>
+                    {a.status === 'awaiting-confirmation' && a.code && (
+                      <span className="text-zinc-400">código {a.code}</span>
+                    )}
+                    {a.status === 'failed' && a.error && <span className="text-red-600 dark:text-red-400">{a.error}</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           {orders.length > 0 && (
             <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
               <PackageSearch className="h-3.5 w-3.5" />

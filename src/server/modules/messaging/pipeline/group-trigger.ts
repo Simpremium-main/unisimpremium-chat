@@ -16,6 +16,9 @@ const ORDER_WORDS_RE =
 /** ICCID da linha: 89 + 17 a 18 dígitos, com sufixo V/F opcional (espaços aceitos). */
 const ICCID_RE = /(?:^|[^\d])89(?:[\s.-]?\d){17,18}[VF]?(?:[^\d]|$)/i;
 
+/** "SIM 4821": confirmação de ação (tratada pelo sistema, não é pergunta para a IA). */
+const CONFIRMATION_RE = /^\s*(?:sim|s|yes|ok|confirmo|confirmado|confirmar)\b[\s,.:!-]*\d{4}\b/i;
+
 /** Telefone, CEP, CPF e datas também têm 4+ dígitos — não contam como pedido. */
 const NOT_ORDER_RE = /\d{2}\/\d{2}|\d{5}-\d{3}|\d{3}\.\d{3}|\(\d{2}\)|\+\d{2}/;
 
@@ -30,6 +33,7 @@ export interface GroupTriggerInput {
 }
 
 export function groupShouldTrigger(input: GroupTriggerInput): boolean {
+  if (CONFIRMATION_RE.test(input.text ?? '')) return false;
   if (input.repliesToUs) return true;
   const own = digits(input.ownNumber ?? '');
   if (own.length >= 8) {

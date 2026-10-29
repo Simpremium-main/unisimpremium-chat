@@ -77,6 +77,9 @@ export class PendingActionService {
   async approve(id: string, userId: string): Promise<PendingAction> {
     const action = await this.storage.get(id);
     if (!action) throw new NotFoundException('Pending action not found');
+    if (action.toolName.startsWith('uni_')) {
+      throw new BadRequestException('Ações da Uni Mobile são confirmadas no WhatsApp com o código, não no app');
+    }
 
     if (action.status !== 'PENDING') {
       throw new BadRequestException(
@@ -168,9 +171,14 @@ export class PendingActionService {
     return action;
   }
 
-  /** List PENDING actions, optionally filtered by conversation. */
+  /**
+   * List PENDING actions, optionally filtered by conversation. Ações da Uni
+   * Mobile (`uni_*`) ficam de fora: são confirmadas no WhatsApp com código,
+   * não aprovadas no app.
+   */
   async listPending(conversationId?: string): Promise<PendingAction[]> {
-    return this.storage.listByStatus('PENDING', conversationId);
+    const actions = await this.storage.listByStatus('PENDING', conversationId);
+    return actions.filter((a) => !a.toolName.startsWith('uni_'));
   }
 
   /** List actions for a given status. */

@@ -5,7 +5,6 @@ import type { Job } from 'bullmq';
 
 import { PrismaService } from '../../../database/prisma.service';
 import { HttpToolExecutorService } from '../tools/http-tool-executor.service';
-import { UNIMOBILE_APPROVAL_TOOLS, UnimobileToolsService } from '../tools/unimobile/unimobile-tools.service';
 import type { ToolContext } from '../tools/tool.types';
 import { PendingActionStorage } from './pending-action.storage';
 import {
@@ -28,7 +27,7 @@ type ExecutorJobData =
  *
  * Quando o operador aprova um `AiPendingAction`, o `PendingActionService`
  * enfileira aqui. Esse worker:
- *   - resolve a tool original (built-in `transferToHuman`, ação Uni Mobile ou skill HTTP)
+ *   - resolve a tool original (built-in `transferToHuman` ou skill HTTP)
  *   - executa de fato (HTTP com `bypassPendingGate: true` pra evitar loop)
  *   - grava `executionResult` e marca status `EXECUTED`
  *
@@ -43,7 +42,6 @@ export class PendingActionExecutorProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly httpExecutor: HttpToolExecutorService,
     private readonly storage: PendingActionStorage,
-    private readonly unimobile: UnimobileToolsService,
   ) {
     super();
   }
@@ -72,9 +70,6 @@ export class PendingActionExecutorProcessor extends WorkerHost {
     try {
       if (action.toolName === 'transferToHuman') {
         result = await this.executeTransferToHuman(action);
-      } else if (action.toolName in UNIMOBILE_APPROVAL_TOOLS) {
-        // Uni Mobile: recarga, extensão, alteração, cancelamento, reinício e novo pedido.
-        result = await this.unimobile.executeApproved(action);
       } else {
         result = await this.executeHttpSkill(action);
       }

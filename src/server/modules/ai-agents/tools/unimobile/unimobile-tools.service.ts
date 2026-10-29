@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
-import { PendingActionService } from '../../confirmations/pending-action.service';
 import type { ImpactLevel } from '../../confirmations/confirmation.types';
 import { OutboundSenderService } from '../outbound-sender.service';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
@@ -21,20 +20,25 @@ type Handler = (input: Obj, ctx: ToolContext) => Promise<ToolResult>;
 
 const obj = (properties: Obj, required: string[] = []) => ({ type: 'object', properties, required });
 const ICCID = { type: 'string', description: 'ICCID completo da linha (começa com 89, 19 ou 20 dígitos)' };
-const CONFIRMADO = {
-  type: 'boolean',
-  description: 'true SOMENTE depois que quem pediu confirmou explicitamente nesta conversa a ação descrita',
+const SOLICITANTE = {
+  type: 'string',
+  description: 'Nome de quem pediu, exatamente como aparece entre colchetes na conversa (em grupo). Só essa pessoa poderá confirmar.',
 };
 
-/** Ações que mudam pedido com cobrança ou risco: só depois da aprovação da equipe no app. */
-export const UNIMOBILE_APPROVAL_TOOLS: Record<string, { impact: ImpactLevel; label: (a: Obj) => string; rollback?: string }> = {
+/** Ações que mudam a linha/pedido: só executam com a confirmação "SIM <código>" de quem pediu. */
+export const UNIMOBILE_ACTIONS: Record<string, { impact: ImpactLevel; label: (a: Obj) => string }> = {
+  uni_reenviar_email: { impact: 'low', label: (a) => `Reenviar o e-mail de instalação da linha ${a.iccid}` },
+  uni_ativar_linha: { impact: 'medium', label: (a) => `Ativar agora a linha ${a.iccid}` },
   uni_recarregar: { impact: 'high', label: (a) => `Recarga de ${a.gb} GB na linha ${a.iccid}` },
   uni_estender_plano: { impact: 'high', label: (a) => `Estender a linha ${a.iccid} para a tarifa ${a.nova_tarifa}` },
   uni_alterar_pedido: { impact: 'medium', label: (a) => `Alterar dados do pedido da linha ${a.iccid}` },
-  uni_cancelar_pedido: { impact: 'critical', label: (a) => `Cancelar o pedido da linha ${a.iccid}`, rollback: 'Não tem volta: um pedido cancelado não pode ser reativado.' },
+  uni_cancelar_pedido: { impact: 'critical', label: (a) => `Cancelar o pedido da linha ${a.iccid} (não tem volta)` },
   uni_reiniciar_linha: { impact: 'high', label: (a) => `Reiniciar a linha ${a.iccid}` },
   uni_criar_pedido: { impact: 'high', label: (a) => `Criar pedido ${String(a.tipo).toUpperCase()} ${a.tarifa} para ${a.nome}, início ${a.data_inicio}` },
 };
+
+/** Validade do código de confirmação. */
+export const CONFIRMATION_TTL_MS = 30 * 60_000;
 
 const SEM_ICCID = {
   ok: false,
@@ -47,11 +51,14 @@ const today = () => new Date().toISOString().slice(0, 10);
  * Ferramentas da API de linhas da Uni Mobile (pacote "unimobile").
  *
  *  - Consultas: executam direto.
- *  - Reenviar e-mail de instalação e ativar linha: executam depois que quem
- *    pediu confirma na conversa (`confirmado: true`).
- *  - Recarga, extensão, alteração, cancelamento, reinício e novo pedido:
- *    viram uma ação pendente que a equipe aprova no app; o executor
- *    (PendingActionExecutorProcessor) chama `executeApproved` e avisa na conversa.
+ *  - Ações (reenviar e-mail, ativar, recarregar, estender, alterar, cancelar,
+ *    reiniciar, novo pedido): a ferramenta registra a solicitação e manda no
+ *    grupo um código ("responda SIM 4821"). Quem confere a confirmação é o
+ *    sistema, não a IA (`handleConfirmation`, chamado pelo pipeline de
+ *    mensagens): só vale o código certo, de quem pediu, dentro de 30 min.
+ *    Confirmado, executa na API na hora e avisa o resultado na conversa.
+ *    O registro fica em ai_pending_actions (fora da lista de aprovação do app)
+ *    e aparece em Solicitações.
  *
  * Em grupo a IA não recebe dados do titular nem códigos de instalação.
  */
@@ -63,7 +70,6 @@ export class UnimobileToolsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly api: UnimobileClient,
-    private readonly pendingActions: PendingActionService,
     private readonly sender: OutboundSenderService,
   ) {
     this.tools = [
@@ -182,45 +188,30 @@ export class UnimobileToolsService {
         },
       ),
 
-      // ─── ações com confirmação de quem pediu ───────────────────
-      this.tool(
+      // ─── ações: confirmadas por código, executadas na hora ──────
+      this.action(
         'uni_reenviar_email',
-        'Reenvia ao e-mail do titular os dados de instalação do eSIM/CHIP (linha pendente ou ativa). Antes, diga o que vai fazer e peça confirmação; chame com confirmado=true só depois do "sim". É o jeito de entregar o QR code/código sem expor no grupo.',
-        obj({ iccid: ICCID, confirmado: CONFIRMADO }, ['iccid', 'confirmado']),
-        (input, ctx) => this.confirmada(input, ctx, 'reenviar o e-mail de instalação', async (creds, iccid) => {
-          const r = await this.api.request(creds, 'POST', '/orders/sendEmail', { iccId: iccid });
-          return r.Result === 'Ok'
-            ? { ok: true, mensagem: 'E-mail de instalação reenviado ao titular.' }
-            : { ok: false, motivo: r.Message };
-        }),
+        'Reenvia ao e-mail do titular os dados de instalação do eSIM/CHIP (linha pendente ou ativa). É o jeito de entregar o QR code sem expor no grupo.',
+        obj({ iccid: ICCID, solicitante: SOLICITANTE }, ['iccid']),
       ),
-      this.tool(
+      this.action(
         'uni_ativar_linha',
-        'Ativa agora uma linha PENDENTE cuja data de início é hoje ou ontem (ex.: o viajante já chegou ao destino). Consulte a linha antes. Peça confirmação e chame com confirmado=true só depois do "sim".',
-        obj({ iccid: ICCID, confirmado: CONFIRMADO }, ['iccid', 'confirmado']),
-        (input, ctx) => this.confirmada(input, ctx, 'ativar a linha', async (creds, iccid) => {
-          const r = await this.api.request(creds, 'POST', '/orders/activateLine', { iccId: iccid });
-          await this.api.invalidateOrders(creds);
-          return r.Result === 'Ok'
-            ? { ok: true, mensagem: 'Linha ativada. O sinal pode levar alguns minutos; reiniciar o celular ajuda.' }
-            : { ok: false, motivo: r.Message, explicacao: 'A linha só ativa se estiver pendente e com data de início hoje ou ontem.' };
-        }),
+        'Ativa agora uma linha PENDENTE cuja data de início é hoje ou ontem (ex.: o viajante já chegou ao destino). Consulte a linha antes.',
+        obj({ iccid: ICCID, solicitante: SOLICITANTE }, ['iccid']),
       ),
-
-      // ─── ações com aprovação da equipe ─────────────────────────
-      this.approval(
+      this.action(
         'uni_recarregar',
-        'Recarga de dados (GB) numa linha ATIVA. Use uni_pacotes_recarga para ver os pacotes (1, 3, 5 ou 10 GB). Tem cobrança: a equipe aprova no app antes de aplicar.',
-        obj({ iccid: ICCID, gb: { type: 'integer', description: 'GB do pacote (valor topUp)' }, confirmado: CONFIRMADO }, ['iccid', 'gb', 'confirmado']),
+        'Recarga de dados (GB) numa linha ATIVA. Use uni_pacotes_recarga para ver os pacotes (1, 3, 5 ou 10 GB).',
+        obj({ iccid: ICCID, gb: { type: 'integer', description: 'GB do pacote (valor topUp)' }, solicitante: SOLICITANTE }, ['iccid', 'gb']),
       ),
-      this.approval(
+      this.action(
         'uni_estender_plano',
-        'Estende o plano da linha (pendente, ativa ou já estendida) para outra tarifa da MESMA zona e tipo com MAIS dias. Pegue o código da nova tarifa em uni_planos. Tem cobrança: a equipe aprova no app.',
-        obj({ iccid: ICCID, nova_tarifa: { type: 'string', description: 'Código da nova tarifa (ex.: EUR_030D_ILIM_SODA_UNIG_ESIM)' }, confirmado: CONFIRMADO }, ['iccid', 'nova_tarifa', 'confirmado']),
+        'Estende o plano da linha (pendente, ativa ou já estendida) para outra tarifa da MESMA zona e tipo com MAIS dias. Pegue o código da nova tarifa em uni_planos.',
+        obj({ iccid: ICCID, nova_tarifa: { type: 'string', description: 'Código da nova tarifa (ex.: EUR_030D_ILIM_SODA_UNIG_ESIM)' }, solicitante: SOLICITANTE }, ['iccid', 'nova_tarifa']),
       ),
-      this.approval(
+      this.action(
         'uni_alterar_pedido',
-        'Altera nome, e-mail, documento, países e data de início do pedido (a data de início só muda enquanto a linha está pendente). Informe só o que muda; o resto é mantido. A equipe aprova no app.',
+        'Altera nome, e-mail, documento, países e data de início do pedido (a data de início só muda enquanto a linha está pendente). Informe só o que muda; o resto é mantido.',
         obj({
           iccid: ICCID,
           nome: { type: 'string' },
@@ -228,22 +219,22 @@ export class UnimobileToolsService {
           documento: { type: 'string' },
           data_inicio: { type: 'string', description: 'AAAA-MM-DD' },
           paises: { type: 'string', description: 'Códigos ISO separados por vírgula, ex.: ES,FR' },
-          confirmado: CONFIRMADO,
-        }, ['iccid', 'confirmado']),
+          solicitante: SOLICITANTE,
+        }, ['iccid']),
       ),
-      this.approval(
+      this.action(
         'uni_cancelar_pedido',
-        'Cancela o pedido da linha (pendente ou ativa, até 3 dias depois da data de início). Não tem volta. A equipe aprova no app.',
-        obj({ iccid: ICCID, motivo: { type: 'string' }, confirmado: CONFIRMADO }, ['iccid', 'confirmado']),
+        'Cancela o pedido da linha (pendente ou ativa, até 3 dias depois da data de início). Não tem volta.',
+        obj({ iccid: ICCID, motivo: { type: 'string' }, solicitante: SOLICITANTE }, ['iccid']),
       ),
-      this.approval(
+      this.action(
         'uni_reiniciar_linha',
-        'Reinicia uma linha ATIVA (último recurso quando a linha não conecta depois das orientações). A equipe aprova no app.',
-        obj({ iccid: ICCID, motivo: { type: 'string' }, confirmado: CONFIRMADO }, ['iccid', 'confirmado']),
+        'Reinicia uma linha ATIVA (último recurso quando a linha não conecta depois das orientações).',
+        obj({ iccid: ICCID, motivo: { type: 'string' }, solicitante: SOLICITANTE }, ['iccid']),
       ),
-      this.approval(
+      this.action(
         'uni_criar_pedido',
-        'Cria um pedido novo de eSIM ou CHIP. Precisa de: tipo (esim/chip), tarifa (código de uni_planos, terminando em ESIM ou CHIP conforme o tipo), data de início (hoje ou depois), nome e documento do titular (5+ caracteres) e e-mail. CHIP exige o ICCID do chip físico. Tem cobrança: a equipe aprova no app.',
+        'Cria um pedido novo de eSIM ou CHIP. Precisa de: tipo (esim/chip), tarifa (código de uni_planos, terminando em ESIM ou CHIP conforme o tipo), data de início (hoje ou depois), nome e documento do titular (5+ caracteres) e e-mail. CHIP exige o ICCID do chip físico.',
         obj({
           tipo: { type: 'string', enum: ['esim', 'chip'] },
           tarifa: { type: 'string' },
@@ -256,8 +247,8 @@ export class UnimobileToolsService {
           eid: { type: 'string', description: 'Opcional (eSIM): EID do aparelho; exige imei e imei2' },
           imei: { type: 'string' },
           imei2: { type: 'string' },
-          confirmado: CONFIRMADO,
-        }, ['tipo', 'tarifa', 'data_inicio', 'nome', 'email', 'documento', 'confirmado']),
+          solicitante: SOLICITANTE,
+        }, ['tipo', 'tarifa', 'data_inicio', 'nome', 'email', 'documento']),
       ),
     ];
   }
@@ -351,67 +342,69 @@ export class UnimobileToolsService {
 
   // ─── ações ────────────────────────────────────────────────────────
 
-  private async confirmada(
-    input: Obj,
-    ctx: ToolContext,
-    acao: string,
-    run: (creds: UnimobileCredentials, iccid: string) => Promise<Obj>,
-  ): Promise<ToolResult> {
-    const iccid = normalizeIccid(input.iccid);
-    if (!isFullIccid(iccid)) return { output: SEM_ICCID };
-    if (input.confirmado !== true) {
-      return { output: { ok: false, aguardando_confirmacao: true, instrucao: `Antes de ${acao} da linha ${iccid}, pergunte se a pessoa confirma. Só chame de novo com confirmado=true depois do "sim".` } };
-    }
-    const creds = await this.creds(ctx);
-    const result = await run(creds, iccid);
-    this.logger.log(`unimobile ${acao} ${iccid} (conv ${ctx.conversationId}): ${result.ok ? 'ok' : result.motivo}`);
-    return { output: { iccid, ...result } };
-  }
-
-  private approval(name: string, description: string, parameters: Obj): AiTool {
-    return this.tool(name, description, parameters, async (input, ctx) => {
-      const problem = await this.validateApproval(name, input, ctx);
+  /**
+   * Registra a ação e manda no grupo o pedido de confirmação com um código.
+   * Nada é executado aqui: só quando quem pediu responder "SIM <código>".
+   */
+  private action(name: string, description: string, parameters: Obj): AiTool {
+    const full = `${description} Não pergunte "confirma?": a ferramenta registra a solicitação e já manda no grupo a mensagem com o código; a ação só acontece quando quem pediu responder SIM + código. Com várias solicitações, chame uma vez para cada uma.`;
+    return this.tool(name, full, parameters, async (input, ctx) => {
+      const problem = await this.validateAction(name, input, ctx);
       if (problem) return { output: { ok: false, ...problem } };
-      if (input.confirmado !== true) {
-        return {
-          output: {
-            ok: false,
-            aguardando_confirmacao: true,
-            instrucao: `Resuma a ação (${UNIMOBILE_APPROVAL_TOOLS[name].label(input)}) e pergunte se a pessoa confirma. Só chame de novo com confirmado=true depois do "sim".`,
+
+      const requester = await this.requester(ctx, input.solicitante);
+      const { solicitante: _s, ...args } = input;
+      if (args.iccid) args.iccid = normalizeIccid(args.iccid);
+      const spec = UNIMOBILE_ACTIONS[name];
+      const label = spec.label(args);
+
+      // Mesma ação já esperando confirmação: reaproveita o código.
+      const open = await this.openActions(ctx.conversationId);
+      const same = open.find((r) => r.toolName === name && JSON.stringify(r.args) === JSON.stringify(args));
+      const code = same ? String((same.preview as Obj).code) : this.newCode(open);
+
+      if (!same) {
+        await this.prisma.aiPendingAction.create({
+          data: {
+            agentRunId: ctx.runId,
+            conversationId: ctx.conversationId,
+            agentId: ctx.agentId,
+            toolName: name,
+            args: args as object,
+            preview: {
+              action: label,
+              impact: spec.impact,
+              channel: 'whatsapp',
+              code,
+              requesterKey: requester.key,
+              requesterName: requester.name,
+              requestMessageId: requester.messageId,
+            } as object,
+            expiresAt: new Date(Date.now() + CONFIRMATION_TTL_MS),
           },
-        };
+        });
       }
-      const { confirmado: _c, ...args } = input;
-      const spec = UNIMOBILE_APPROVAL_TOOLS[name];
-      const action = await this.pendingActions.create({
-        agentRunId: ctx.runId,
-        conversationId: ctx.conversationId,
-        agentId: ctx.agentId,
-        toolName: name,
-        args,
-        preview: {
-          action: spec.label(args),
-          impact: spec.impact,
-          rollback: spec.rollback,
-          affectedEntity: args.iccid ? { type: 'order', id: String(args.iccid), label: `ICCID ${args.iccid}` } : undefined,
-        },
-        ttlMinutes: 12 * 60,
-      });
-      this.logger.log(`unimobile ${name} aguardando aprovação: ${action.id} (conv ${ctx.conversationId})`);
+
+      const who = requester.name ? `${requester.name}, ` : '';
+      await this.notifyCtx(
+        ctx,
+        `🔐 *${label}*\n${who}para confirmar, responda *SIM ${code}* (vale por 30 minutos).`,
+      );
+      this.logger.log(`unimobile ${name} aguardando confirmação ${code} (conv ${ctx.conversationId})`);
       return {
         output: {
           ok: true,
-          status: 'registrado_para_aprovacao',
-          pendingActionId: action.id,
-          agent_should_say:
-            'Diga que a solicitação foi registrada e será concluída pela equipe em instantes; o resultado será avisado aqui. Não diga que já foi feito.',
+          status: 'aguardando_confirmacao',
+          codigo: code,
+          instrucao:
+            'A mensagem com o código de confirmação JÁ foi enviada na conversa. Não repita o código nem diga que foi feito. A ação será executada automaticamente quando quem pediu responder SIM + código.',
         },
       };
     });
   }
 
-  /** Erros de dados antes de mandar para aprovação (a API rejeitaria depois). */
-  private async validateApproval(name: string, a: Obj, ctx: ToolContext): Promise<Obj | null> {
+  /** Erros de dados antes de pedir confirmação (a API rejeitaria depois). */
+  private async validateAction(name: string, a: Obj, ctx: ToolContext): Promise<Obj | null> {
     if (name !== 'uni_criar_pedido' && !isFullIccid(a.iccid)) return SEM_ICCID;
     if (name === 'uni_recarregar' && ![1, 3, 5, 10].includes(Number(a.gb))) {
       return { instrucao: 'Pacotes de recarga: 1, 3, 5 ou 10 GB (veja uni_pacotes_recarga).' };
@@ -429,43 +422,153 @@ export class UnimobileToolsService {
       if (tipo === 'chip' && !isFullIccid(a.iccid)) return { instrucao: 'Pedido de CHIP precisa do ICCID do chip físico.' };
       if (a.eid && (!a.imei || !a.imei2)) return { instrucao: 'Com EID, informe também IMEI e IMEI2.' };
     }
-    // Só o reinício dispensa o reseller_id.
-    if (name !== 'uni_reiniciar_linha' && !this.api.credentials(await this.partner(ctx)).resellerId) {
+    // reseller_id: exigido por recarga, extensão, alteração, cancelamento e novo pedido.
+    const needsReseller = ['uni_recarregar', 'uni_estender_plano', 'uni_alterar_pedido', 'uni_cancelar_pedido', 'uni_criar_pedido'];
+    if (needsReseller.includes(name) && !this.api.credentials(await this.partner(ctx)).resellerId) {
       return { instrucao: 'Essa ação não está configurada no sistema (falta o reseller_id). Passe para a equipe.' };
     }
     return null;
   }
 
   /**
-   * Executa uma ação aprovada pela equipe (chamado pelo
-   * PendingActionExecutorProcessor) e avisa o resultado na conversa.
+   * Confirmação no WhatsApp: "SIM 4821" (ou "sim" citando a mensagem do
+   * código). Chamado pelo pipeline para cada mensagem recebida; true =
+   * a mensagem era uma confirmação e foi tratada (a IA não roda nela).
    */
-  async executeApproved(action: { toolName: string; args: Obj; conversationId: string; agentId: string; agentRunId: string }): Promise<Obj> {
+  async handleConfirmation(messageId: string): Promise<boolean> {
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.direction !== 'INBOUND') return false;
+    const text = messageText(message.content);
+    const code = await this.confirmationCode(message.conversationId, text, message.metadata);
+    if (!code) return false;
+
+    const open = await this.openActions(message.conversationId);
+    const record = open.find((r) => (r.preview as Obj).code === code);
+    // Código já usado (confirmação repetida) ou expirado: ignora em silêncio.
+    if (!record && (await this.recentCode(message.conversationId, code))) {
+      return !open.length || this.notifyExpired(message.conversationId, code, open[0]);
+    }
+    // Sem nenhuma solicitação aberta, "sim 1234" é conversa normal.
+    if (!open.length) return false;
+    const ctx = await this.ctxFor(message.conversationId, record);
+    if (!record) {
+      if (ctx) await this.notifyCtx(ctx, `Não encontrei uma solicitação aberta com o código ${code} (pode ter expirado). Peça de novo, por favor.`).catch(() => undefined);
+      return true;
+    }
+    const preview = record.preview as Obj;
+    const key = senderKey(message);
+    if (preview.requesterKey && key && preview.requesterKey !== key) {
+      if (ctx) {
+        const name = preview.requesterName ? String(preview.requesterName) : 'quem pediu';
+        await this.notifyCtx(ctx, `Só ${name} pode confirmar a solicitação ${code}.`).catch(() => undefined);
+      }
+      return true;
+    }
+
+    // Uma confirmação só: quem chegar primeiro leva (mensagens duplicadas não executam 2x).
+    const claimed = await this.prisma.aiPendingAction.updateMany({
+      where: { id: record.id, status: 'PENDING' },
+      data: { status: 'APPROVED', approvedAt: new Date(), approvedBy: key ?? message.senderName ?? null },
+    });
+    if (claimed.count === 0) return true;
+
+    try {
+      const result = await this.executeAction(record);
+      await this.prisma.aiPendingAction.update({
+        where: { id: record.id },
+        data: { status: 'EXECUTED', executionResult: { ...result, confirmationMessageId: message.id } as object },
+      });
+    } catch (err: any) {
+      await this.prisma.aiPendingAction.update({
+        where: { id: record.id },
+        data: {
+          status: 'REJECTED',
+          rejectedAt: new Date(),
+          rejectedReason: String(err?.message ?? err).slice(0, 500),
+          executionResult: { ok: false, error: String(err?.message ?? err), confirmationMessageId: message.id } as object,
+        },
+      });
+    }
+    return true;
+  }
+
+  /** Código de "SIM 4821", ou de "sim" citando a mensagem do código. */
+  private async confirmationCode(conversationId: string, text: string, metadata: unknown): Promise<string | null> {
+    const direct = /^\s*(?:sim|s|yes|ok|confirmo|confirmado|confirmar)\b[\s,.:!-]*(\d{4})\b/i.exec(text);
+    if (direct) return direct[1];
+    if (!/^\s*(?:sim|s|yes|ok|confirmo|confirmado|confirmar)\b/i.test(text)) return null;
+    const quoted = (metadata as { replyTo?: { externalMessageId?: string } | null } | null)?.replyTo?.externalMessageId;
+    if (!quoted) return null;
+    const original = await this.prisma.message.findFirst({
+      where: { conversationId, externalId: quoted, direction: 'OUTBOUND' },
+      select: { content: true },
+    });
+    return /SIM (\d{4})/.exec(messageText(original?.content))?.[1] ?? null;
+  }
+
+  /** Executa a ação confirmada na API e avisa o resultado na conversa. */
+  async executeAction(record: { toolName: string; args: unknown; conversationId: string; agentId: string; agentRunId: string }): Promise<Obj> {
     const conv = await this.prisma.conversation.findUnique({
-      where: { id: action.conversationId },
+      where: { id: record.conversationId },
       select: { organizationId: true, contactId: true, channelId: true, metadata: true },
     });
     if (!conv) throw new Error('Conversa não existe mais');
-    const partner = groupPartner(conv.metadata);
-    const creds = this.api.credentials(partner);
-    const a = action.args;
+    const a = (record.args ?? {}) as Obj;
+    const creds = this.api.credentials(groupPartner(conv.metadata));
     const iccId = normalizeIccid(a.iccid);
     const reseller = creds.resellerId;
-    let r: Obj;
+    const label = UNIMOBILE_ACTIONS[record.toolName]?.label(a) ?? record.toolName;
+    const ctx: ToolContext = {
+      organizationId: conv.organizationId,
+      conversationId: record.conversationId,
+      contactId: conv.contactId,
+      channelId: conv.channelId,
+      agentId: record.agentId,
+      runId: record.agentRunId,
+    };
 
-    switch (action.toolName) {
+    let r: Obj;
+    try {
+      r = await this.callApi(record.toolName, a, creds, iccId, reseller);
+    } catch (err: any) {
+      await this.notifyCtx(ctx, `⚠️ ${label}: não foi possível concluir agora (${err?.message ?? 'erro na API'}). A equipe vai verificar.`).catch(() => undefined);
+      throw err;
+    }
+    await this.api.invalidateOrders(creds);
+
+    const ok = r.Result === 'Ok';
+    const created = record.toolName === 'uni_criar_pedido' && ok ? (r.Data as Obj | undefined) : undefined;
+    const extra =
+      record.toolName === 'uni_ativar_linha' && ok
+        ? ' O sinal pode levar alguns minutos; reiniciar o celular ajuda.'
+        : created?.iccId
+          ? ` ICCID da nova linha: ${created.iccId}. Os dados de instalação vão para o e-mail do titular.`
+          : '';
+    const text = ok
+      ? `✅ ${label}: concluído.${extra}`
+      : `⚠️ ${label}: não foi possível concluir (${String(r.Message ?? 'erro na API')}).`;
+    await this.notifyCtx(ctx, text).catch((err) =>
+      this.logger.warn(`unimobile aviso na conversa ${record.conversationId} falhou: ${err?.message ?? err}`),
+    );
+    if (!ok) throw new Error(String(r.Message ?? 'erro na API Uni Mobile'));
+    // Nunca guardar códigos de instalação no resultado.
+    return { ok: true, message: r.Message, iccId: created?.iccId ?? iccId };
+  }
+
+  private async callApi(tool: string, a: Obj, creds: UnimobileCredentials, iccId: string, reseller: number | null): Promise<Obj> {
+    switch (tool) {
+      case 'uni_reenviar_email':
+        return this.api.request(creds, 'POST', '/orders/sendEmail', { iccId });
+      case 'uni_ativar_linha':
+        return this.api.request(creds, 'POST', '/orders/activateLine', { iccId });
       case 'uni_recarregar':
-        r = await this.api.request(creds, 'POST', `/orders/topup/${iccId}`, { reseller_id: reseller, topUp: Number(a.gb) });
-        break;
+        return this.api.request(creds, 'POST', `/orders/topup/${iccId}`, { reseller_id: reseller, topUp: Number(a.gb) });
       case 'uni_estender_plano':
-        r = await this.api.request(creds, 'PATCH', '/orders/extendActiveOrder', { reseller_id: reseller, iccId, tariff: String(a.nova_tarifa) });
-        break;
+        return this.api.request(creds, 'PATCH', '/orders/extendActiveOrder', { reseller_id: reseller, iccId, tariff: String(a.nova_tarifa) });
       case 'uni_cancelar_pedido':
-        r = await this.api.request(creds, 'POST', '/orders/cancelOrder', { reseller_id: reseller, iccId });
-        break;
+        return this.api.request(creds, 'POST', '/orders/cancelOrder', { reseller_id: reseller, iccId });
       case 'uni_reiniciar_linha':
-        r = await this.api.request(creds, 'POST', '/orders/resetOrder', { iccId });
-        break;
+        return this.api.request(creds, 'POST', '/orders/resetOrder', { iccId });
       case 'uni_alterar_pedido': {
         // modifyOrder exige todos os campos: completa com o pedido atual.
         const current = (await this.orders(creds).catch(() => [])).find((o) => normalizeIccid(o.iccId) === iccId) ?? {};
@@ -479,13 +582,12 @@ export class UnimobileToolsService {
           ...(a.paises ? { countries: a.paises } : {}),
         };
         if (!body.name || !body.email || !body.document || !body.init_date) {
-          throw new Error('Faltam dados do pedido (nome, e-mail, documento ou data de início) para alterar.');
+          throw new Error('faltam dados do pedido (nome, e-mail, documento ou data de início)');
         }
-        r = await this.api.request(creds, 'PATCH', '/orders/modifyOrder', body);
-        break;
+        return this.api.request(creds, 'PATCH', '/orders/modifyOrder', body);
       }
       case 'uni_criar_pedido':
-        r = await this.api.request(creds, 'POST', '/orders/order', {
+        return this.api.request(creds, 'POST', '/orders/order', {
           reseller_id: reseller,
           type: String(a.tipo).toLowerCase(),
           tariff: String(a.tarifa),
@@ -497,42 +599,82 @@ export class UnimobileToolsService {
           ...(String(a.tipo).toLowerCase() === 'chip' ? { iccId } : {}),
           ...(a.eid ? { eid: a.eid, imei: a.imei, imei2: a.imei2 } : {}),
         });
-        break;
       default:
-        throw new Error(`Ação desconhecida: ${action.toolName}`);
+        throw new Error(`Ação desconhecida: ${tool}`);
     }
-    await this.api.invalidateOrders(creds);
-
-    const ok = r.Result === 'Ok';
-    const label = UNIMOBILE_APPROVAL_TOOLS[action.toolName]?.label(a) ?? action.toolName;
-    const created = action.toolName === 'uni_criar_pedido' && ok ? (r.Data as Obj | undefined) : undefined;
-    const text = ok
-      ? `✅ ${label}: concluído.${created?.iccId ? ` ICCID da nova linha: ${created.iccId}. Os dados de instalação vão para o e-mail do titular.` : ''}`
-      : `⚠️ ${label}: não foi possível concluir (${String(r.Message ?? 'erro na API')}). A equipe vai verificar.`;
-    await this.notify(action, conv, text).catch((err) =>
-      this.logger.warn(`unimobile aviso na conversa ${action.conversationId} falhou: ${err?.message ?? err}`),
-    );
-    if (!ok) throw new Error(String(r.Message ?? 'erro na API Uni Mobile'));
-    // Nunca guardar códigos de instalação no resultado.
-    return { ok: true, message: r.Message, iccId: created?.iccId ?? iccId };
   }
 
-  private async notify(
-    action: { conversationId: string; agentId: string; agentRunId: string },
-    conv: { organizationId: string; contactId: string; channelId: string },
-    text: string,
-  ) {
-    const ctx: ToolContext = {
-      organizationId: conv.organizationId,
-      conversationId: action.conversationId,
-      contactId: conv.contactId,
-      channelId: conv.channelId,
-      agentId: action.agentId,
-      runId: action.agentRunId,
-    };
+  /** O código foi de uma ação desta conversa nas últimas 24 h (qualquer status)? */
+  private async recentCode(conversationId: string, code: string): Promise<boolean> {
+    const hit = await this.prisma.aiPendingAction.findFirst({
+      where: {
+        conversationId,
+        toolName: { startsWith: 'uni_' },
+        createdAt: { gt: new Date(Date.now() - 24 * 3_600_000) },
+        preview: { path: ['code'], equals: code },
+      },
+      select: { status: true, expiresAt: true },
+    });
+    return !!hit;
+  }
+
+  /** Código antigo com outras solicitações abertas: avisa que expirou ou já foi usado. */
+  private async notifyExpired(conversationId: string, code: string, any: { agentId: string; agentRunId: string }): Promise<true> {
+    const ctx = await this.ctxFor(conversationId, any);
+    if (ctx) await this.notifyCtx(ctx, `O código ${code} já foi usado ou expirou.`).catch(() => undefined);
+    return true;
+  }
+
+  /** Ações desta conversa esperando o "SIM <código>". */
+  private openActions(conversationId: string) {
+    return this.prisma.aiPendingAction.findMany({
+      where: { conversationId, status: 'PENDING', toolName: { startsWith: 'uni_' }, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  private newCode(open: Array<{ preview: unknown }>): string {
+    const used = new Set(open.map((r) => String((r.preview as Obj).code)));
+    for (;;) {
+      const code = String(1000 + Math.floor(Math.random() * 9000));
+      if (!used.has(code)) return code;
+    }
+  }
+
+  /**
+   * Quem pediu: a última mensagem de `solicitante` na conversa (em grupo,
+   * várias pessoas pedem ao mesmo tempo); sem nome, a mensagem que disparou a IA.
+   */
+  private async requester(ctx: ToolContext, solicitante: unknown): Promise<{ key: string | null; name: string | null; messageId: string | null }> {
+    const name = typeof solicitante === 'string' ? solicitante.trim().replace(/^\[|\]:?$/g, '') : '';
+    const recent = await this.prisma.message.findMany({
+      where: { conversationId: ctx.conversationId, direction: 'INBOUND' },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    const byName = name ? recent.find((m) => (m.senderName ?? '').trim().toLowerCase() === name.toLowerCase()) : undefined;
+    const msg = byName ?? recent.find((m) => m.id === ctx.triggerMessageId) ?? recent[0];
+    if (!msg) return { key: null, name: name || null, messageId: null };
+    return { key: senderKey(msg), name: msg.senderName ?? (name || null), messageId: msg.id };
+  }
+
+  private async ctxFor(conversationId: string, record?: { agentId: string; agentRunId: string }): Promise<ToolContext | null> {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { organizationId: true, contactId: true, channelId: true },
+    });
+    if (!conv) return null;
+    const run = record
+      ? { agentId: record.agentId, id: record.agentRunId }
+      : await this.prisma.aiAgentRun.findFirst({ where: { conversationId }, orderBy: { startedAt: 'desc' }, select: { agentId: true, id: true } });
+    if (!run) return null;
+    return { organizationId: conv.organizationId, conversationId, contactId: conv.contactId, channelId: conv.channelId, agentId: run.agentId, runId: run.id };
+  }
+
+  private async notifyCtx(ctx: ToolContext, text: string) {
     const external = await this.sender.contactExternalId(ctx);
     if (!external) return;
-    const agent = await this.prisma.aiAgent.findUnique({ where: { id: action.agentId }, select: { name: true } });
+    const agent = await this.prisma.aiAgent.findUnique({ where: { id: ctx.agentId }, select: { name: true } });
     await this.sender.send(ctx, external, { type: 'TEXT', text }, agent?.name ?? 'AI');
   }
 
@@ -573,6 +715,23 @@ export class UnimobileToolsService {
       },
     };
   }
+}
+
+/**
+ * Quem mandou a mensagem: o participante do grupo (JID do Zappfy) ou, sem
+ * ele, o nome exibido. Compara solicitante e confirmação.
+ */
+export function senderKey(message: { senderName?: string | null; metadata?: unknown }): string | null {
+  const raw = (message.metadata as { rawPayload?: { message?: Obj } } | null)?.rawPayload?.message ?? {};
+  const jid = [raw.sender_pn, raw.sender, raw.participant].find((v) => typeof v === 'string' && v.trim()) as string | undefined;
+  if (jid) return jid.split('@')[0].split(':')[0].replace(/\D/g, '') || jid;
+  const name = message.senderName?.trim().toLowerCase();
+  return name ? `nome:${name}` : null;
+}
+
+function messageText(content: unknown): string {
+  const c = (content ?? {}) as { text?: unknown; caption?: unknown };
+  return [c.text, c.caption].find((v) => typeof v === 'string') as string ?? '';
 }
 
 const groupPartner = (metadata: unknown): string | null => {

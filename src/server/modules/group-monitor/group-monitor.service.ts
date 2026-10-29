@@ -4,20 +4,15 @@ import { PrismaService } from '../../database/prisma.service';
 import type { ChannelAccess } from '../iam/channel-access/channel-access.service';
 import { parseOrders } from '../ai-agents/tools/simpremium/customer-orders.parse';
 
-/** Ferramentas da IA que consultam ou mexem em pedido/linha (Pedido Central e Uni Mobile). */
+/**
+ * Ferramentas da IA que consultam pedido/linha (Pedido Central e Uni Mobile).
+ * As ações da Uni Mobile aparecem à parte (`actions`), com código e resultado.
+ */
 export const ORDER_TOOLS = [
   'uni_consultar_linha',
   'uni_consumo_linha',
   'uni_historico_linha',
   'uni_pacotes_recarga',
-  'uni_reenviar_email',
-  'uni_ativar_linha',
-  'uni_recarregar',
-  'uni_estender_plano',
-  'uni_alterar_pedido',
-  'uni_cancelar_pedido',
-  'uni_reiniciar_linha',
-  'uni_criar_pedido',
   'consultar_pedido',
   'pedidos_do_cliente',
   'status_entrega',
@@ -219,6 +214,30 @@ export class GroupMonitorService {
       lookupsByRun.set(c.runId, list);
     }
 
+    // Ações da Uni Mobile pedidas em cada solicitação (registro + resultado).
+    const actionRows = rows.length
+      ? await this.prisma.aiPendingAction.findMany({
+          where: {
+            conversationId: { in: [...new Set(rows.map((r) => r.conversation_id))] },
+            toolName: { startsWith: 'uni_' },
+            createdAt: { gte: rows.reduce((min, r) => (r.created_at < min ? r.created_at : min), rows[0].created_at) },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true, toolName: true, args: true, preview: true, status: true, expiresAt: true,
+            createdAt: true, approvedAt: true, rejectedReason: true, executionResult: true,
+          },
+        })
+      : [];
+    const actionsByRequest = new Map<string, ReturnType<typeof toAction>[]>();
+    for (const a of actionRows) {
+      const requestId = (a.preview as Record<string, unknown> | null)?.requestMessageId;
+      if (typeof requestId !== 'string') continue;
+      const list = actionsByRequest.get(requestId) ?? [];
+      list.push(toAction(a));
+      actionsByRequest.set(requestId, list);
+    }
+
     const items = rows.map((r) => {
       const meta = (r.metadata ?? {}) as { transcription?: { text?: unknown } };
       const transcript = typeof meta.transcription?.text === 'string' ? meta.transcription.text : null;
@@ -234,6 +253,7 @@ export class GroupMonitorService {
           ? { text: messageText(r.reply_content), at: r.reply_at, by: r.run_id ? 'IA' : r.reply_sender }
           : null,
         lookups: r.run_id ? lookupsByRun.get(r.run_id) ?? [] : [],
+        actions: actionsByRequest.get(r.id) ?? [],
       };
     });
 
@@ -282,6 +302,47 @@ export function summarizeOutput(
   const list = Array.isArray(obj.pedidos) ? obj.pedidos : value;
   const orders = parseOrders(list).map((o) => ({ id: o.id, status: o.status }));
   return { outcome: orders.length ? 'found' : 'unknown', orders };
+}
+
+export type ActionStatus = 'awaiting-confirmation' | 'running' | 'done' | 'failed' | 'expired';
+
+/** Uma ação da Uni Mobile pedida no grupo: código, status e resultado. */
+function toAction(a: {
+  id: string;
+  toolName: string;
+  args: unknown;
+  preview: unknown;
+  status: string;
+  expiresAt: Date;
+  createdAt: Date;
+  approvedAt: Date | null;
+  rejectedReason: string | null;
+  executionResult: unknown;
+}) {
+  const p = (a.preview ?? {}) as Record<string, unknown>;
+  const status: ActionStatus =
+    a.status === 'EXECUTED'
+      ? 'done'
+      : a.status === 'REJECTED'
+        ? 'failed'
+        : a.status === 'APPROVED'
+          ? 'running'
+          : a.status === 'EXPIRED' || a.expiresAt < new Date()
+            ? 'expired'
+            : 'awaiting-confirmation';
+  const iccid = (a.args as Record<string, unknown> | null)?.iccid;
+  return {
+    id: a.id,
+    tool: a.toolName,
+    label: typeof p.action === 'string' ? p.action : a.toolName,
+    code: typeof p.code === 'string' ? p.code : null,
+    requester: typeof p.requesterName === 'string' ? p.requesterName : null,
+    iccid: typeof iccid === 'string' ? iccid : null,
+    status,
+    createdAt: a.createdAt,
+    confirmedAt: a.approvedAt,
+    error: a.rejectedReason,
+  };
 }
 
 /** Uma consulta de pedido feita pela IA (ferramenta + resultado). */

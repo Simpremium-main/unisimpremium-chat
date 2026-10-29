@@ -27,6 +27,10 @@ function setup(responses: Record<string, unknown>, opts: { group?: boolean; part
     return { status: 200, text: async () => JSON.stringify(body) } as any;
   });
   const client = new UnimobileClient(env({ UNIMOBILE_API_URL: 'https://api.test', UNIMOBILE_API_TOKEN: 'tok', UNIMOBILE_RESELLER_ID: '77', ...opts.vars }));
+  const actions: any[] = [];
+  const messages: any[] = [
+    { id: 'm-ana', conversationId: 'c1', direction: 'INBOUND', senderName: 'Ana', content: { text: 'recarga 3gb' }, metadata: { rawPayload: { message: { sender_pn: '5511911110000@s.whatsapp.net' } } }, createdAt: new Date() },
+  ];
   const prisma: any = {
     conversation: {
       findUnique: jest.fn(async () => ({
@@ -38,12 +42,42 @@ function setup(responses: Record<string, unknown>, opts: { group?: boolean; part
       })),
     },
     aiAgent: { findUnique: jest.fn(async () => ({ name: 'Uni' })) },
+    aiAgentRun: { findFirst: jest.fn(async () => ({ id: 'r1', agentId: 'a1' })) },
+    message: {
+      findMany: jest.fn(async () => messages),
+      findUnique: jest.fn(async ({ where }: any) => messages.find((m) => m.id === where.id) ?? null),
+      findFirst: jest.fn(async ({ where }: any) => messages.find((m) => m.externalId === where.externalId && m.direction === where.direction) ?? null),
+    },
+    aiPendingAction: {
+      findFirst: jest.fn(async ({ where }: any) =>
+        actions.find((x) => x.conversationId === where.conversationId && x.preview?.code === where.preview.equals) ?? null,
+      ),
+      findMany: jest.fn(async ({ where }: any) =>
+        actions.filter((x) => x.conversationId === where.conversationId && x.status === 'PENDING' && x.expiresAt > new Date()),
+      ),
+      create: jest.fn(async ({ data }: any) => {
+        const row = { id: `pa${actions.length + 1}`, status: 'PENDING', createdAt: new Date(), ...data };
+        actions.push(row);
+        return row;
+      }),
+      updateMany: jest.fn(async ({ where, data }: any) => {
+        const row = actions.find((x) => x.id === where.id && x.status === where.status);
+        if (!row) return { count: 0 };
+        Object.assign(row, data);
+        return { count: 1 };
+      }),
+      update: jest.fn(async ({ where, data }: any) => Object.assign(actions.find((x) => x.id === where.id), data)),
+    },
   };
-  const pending: any = { create: jest.fn(async (i: any) => ({ id: 'pa1', ...i })) };
   const sender: any = { contactExternalId: jest.fn(async () => 'g@g.us'), send: jest.fn(async () => ({})) };
-  const svc = new UnimobileToolsService(prisma, client, pending, sender);
-  const run = (name: string, input: Record<string, unknown>) => svc.tools.find((t) => t.name === name)!.execute(input, ctx);
-  return { svc, run, calls, pending, sender };
+  const svc = new UnimobileToolsService(prisma, client, sender);
+  const run = (name: string, input: Record<string, unknown>) => svc.tools.find((t) => t.name === name)!.execute(input, { ...ctx, triggerMessageId: 'm-ana' });
+  const inbound = (id: string, text: string, from: string, extra: Record<string, unknown> = {}) => {
+    messages.push({ id, conversationId: 'c1', direction: 'INBOUND', senderName: from, content: { text }, metadata: { rawPayload: { message: { sender_pn: from === 'Ana' ? '5511911110000@s.whatsapp.net' : '5511922220000@s.whatsapp.net' } }, ...extra }, createdAt: new Date() });
+    return svc.handleConfirmation(id);
+  };
+  const sent = () => sender.send.mock.calls.map((c: any[]) => c[2].text as string);
+  return { svc, run, calls, sender, actions, messages, inbound, sent };
 }
 
 const detail = {
@@ -118,41 +152,79 @@ describe('ferramentas Uni Mobile', () => {
     expect(out).toMatchObject({ encontrado: true, quantidade: 1, linhas: [{ iccid: ICCID, inicio: '20/10/2026' }] });
   });
 
-  it('ativar e reenviar e-mail só com confirmação', async () => {
-    const { run, calls } = setup({ '/orders/activateLine': { Result: 'Ok', Message: 'Line Activated successfully' } });
-    const before: any = (await run('uni_ativar_linha', { iccid: ICCID, confirmado: false })).output;
-    expect(before.aguardando_confirmacao).toBe(true);
+  it('ação manda código no grupo e não executa nada antes da confirmação', async () => {
+    const { run, calls, actions, sent } = setup({});
+    const out: any = (await run('uni_recarregar', { iccid: ICCID, gb: 3, solicitante: 'Ana' })).output;
+    expect(out).toMatchObject({ ok: true, status: 'aguardando_confirmacao' });
     expect(calls).toHaveLength(0);
-    const after: any = (await run('uni_ativar_linha', { iccid: ICCID, confirmado: true })).output;
-    expect(after.ok).toBe(true);
-    expect(calls[0]).toMatchObject({ method: 'POST', body: { iccId: ICCID } });
+    expect(actions[0]).toMatchObject({ toolName: 'uni_recarregar', args: { iccid: ICCID, gb: 3 } });
+    expect(actions[0].preview).toMatchObject({ code: out.codigo, requesterName: 'Ana', requestMessageId: 'm-ana', requesterKey: '5511911110000' });
+    expect(sent()[0]).toContain(`SIM ${out.codigo}`);
   });
 
-  it('recarga vira ação pendente da equipe e só executa na aprovação', async () => {
-    const { run, svc, calls, pending, sender } = setup({ [`/orders/topup/${ICCID}`]: { Result: 'Ok', Message: 'Topup applied successfully' } });
-    const out: any = (await run('uni_recarregar', { iccid: ICCID, gb: 3, confirmado: true })).output;
-    expect(out).toMatchObject({ ok: true, status: 'registrado_para_aprovacao' });
-    expect(calls).toHaveLength(0);
-    expect(pending.create.mock.calls[0][0]).toMatchObject({ toolName: 'uni_recarregar', args: { iccid: ICCID, gb: 3 } });
-
-    await svc.executeApproved({ toolName: 'uni_recarregar', args: { iccid: ICCID, gb: 3 }, conversationId: 'c1', agentId: 'a1', agentRunId: 'r1' });
+  it('"SIM <código>" de quem pediu executa na API e avisa', async () => {
+    const { run, calls, actions, inbound, sent } = setup({ [`/orders/topup/${ICCID}`]: { Result: 'Ok', Message: 'Topup applied successfully' } });
+    const { codigo } = (await run('uni_recarregar', { iccid: ICCID, gb: 3, solicitante: 'Ana' })).output as any;
+    expect(await inbound('m2', `sim ${codigo}`, 'Ana')).toBe(true);
     expect(calls[0]).toMatchObject({ method: 'POST', body: { reseller_id: 77, topUp: 3 } });
-    expect(sender.send.mock.calls[0][2].text).toMatch(/Recarga de 3 GB.*concluído/);
+    expect(actions[0].status).toBe('EXECUTED');
+    expect(sent().at(-1)).toMatch(/Recarga de 3 GB.*concluído/);
+    // Repetir o código não executa de novo.
+    expect(await inbound('m3', `SIM ${codigo}`, 'Ana')).toBe(true);
+    expect(calls).toHaveLength(1);
   });
 
-  it('valida antes de pedir aprovação', async () => {
-    const { run, pending } = setup({});
-    expect(((await run('uni_recarregar', { iccid: ICCID, gb: 2, confirmado: true })).output as any).ok).toBe(false);
-    expect(((await run('uni_criar_pedido', { tipo: 'esim', tarifa: 'EUR_017D_ILIM_SODA_UNIG_CHIP', data_inicio: '2099-01-01', nome: 'Ana Silva', email: 'a@b.com', documento: '12345', confirmado: true })).output as any).instrucao).toMatch(/ESIM/);
-    expect(pending.create).not.toHaveBeenCalled();
+  it('10 solicitações: cada código executa só a sua', async () => {
+    const { run, calls, inbound } = setup({ '/orders/sendEmail': { Result: 'Ok' } });
+    const codes: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const iccid = `8901280733269273${String(7700 + i)}`;
+      codes.push(((await run('uni_reenviar_email', { iccid, solicitante: 'Ana' })).output as any).codigo);
+    }
+    expect(new Set(codes).size).toBe(10);
+    await inbound('m9', `SIM ${codes[6]}`, 'Ana');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body).toEqual({ iccId: '89012807332692737706' });
   });
 
-  it('falha da API na execução avisa na conversa e lança erro', async () => {
-    const { svc, sender } = setup({ '/orders/cancelOrder': { Result: 'Error', Message: 'IccId not found, not pending or active or has been active for more than 3 days.' } });
-    await expect(
-      svc.executeApproved({ toolName: 'uni_cancelar_pedido', args: { iccid: ICCID }, conversationId: 'c1', agentId: 'a1', agentRunId: 'r1' }),
-    ).rejects.toThrow(/3 days/);
-    expect(sender.send.mock.calls[0][2].text).toMatch(/não foi possível/);
+  it('confirmação de outra pessoa não vale', async () => {
+    const { run, calls, inbound, sent } = setup({ '/orders/activateLine': { Result: 'Ok' } });
+    const { codigo } = (await run('uni_ativar_linha', { iccid: ICCID, solicitante: 'Ana' })).output as any;
+    expect(await inbound('m2', `SIM ${codigo}`, 'Bruno')).toBe(true);
+    expect(calls).toHaveLength(0);
+    expect(sent().at(-1)).toMatch(/Só Ana pode confirmar/);
+  });
+
+  it('"sim" citando a mensagem do código também confirma', async () => {
+    const { run, calls, messages, inbound } = setup({ '/orders/sendEmail': { Result: 'Ok' } });
+    const { codigo } = (await run('uni_reenviar_email', { iccid: ICCID, solicitante: 'Ana' })).output as any;
+    messages.push({ id: 'out1', conversationId: 'c1', direction: 'OUTBOUND', externalId: 'ext-1', content: { text: `🔐 ... responda *SIM ${codigo}*` } });
+    expect(await inbound('m2', 'sim', 'Ana', { replyTo: { externalMessageId: 'ext-1' } })).toBe(true);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('sem solicitação aberta, "sim 1234" segue para a IA; código errado é avisado', async () => {
+    const { run, inbound, sent } = setup({});
+    expect(await inbound('m1', 'sim 1234', 'Ana')).toBe(false);
+    await run('uni_reenviar_email', { iccid: ICCID, solicitante: 'Ana' });
+    expect(await inbound('m2', 'sim 0000', 'Ana')).toBe(true);
+    expect(sent().at(-1)).toMatch(/Não encontrei/);
+  });
+
+  it('falha da API marca como falhou e avisa no grupo', async () => {
+    const { run, actions, inbound, sent } = setup({ '/orders/cancelOrder': { Result: 'Error', Message: 'IccId not found, not pending or active or has been active for more than 3 days.' } });
+    const { codigo } = (await run('uni_cancelar_pedido', { iccid: ICCID, solicitante: 'Ana' })).output as any;
+    await inbound('m2', `SIM ${codigo}`, 'Ana');
+    expect(actions[0].status).toBe('REJECTED');
+    expect(actions[0].rejectedReason).toMatch(/3 days/);
+    expect(sent().at(-1)).toMatch(/não foi possível/);
+  });
+
+  it('valida antes de pedir confirmação', async () => {
+    const { run, actions } = setup({});
+    expect(((await run('uni_recarregar', { iccid: ICCID, gb: 2 })).output as any).ok).toBe(false);
+    expect(((await run('uni_criar_pedido', { tipo: 'esim', tarifa: 'EUR_017D_ILIM_SODA_UNIG_CHIP', data_inicio: '2099-01-01', nome: 'Ana Silva', email: 'a@b.com', documento: '12345' })).output as any).instrucao).toMatch(/ESIM/);
+    expect(actions).toHaveLength(0);
   });
 
   it('token do parceiro do grupo', async () => {
