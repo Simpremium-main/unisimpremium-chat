@@ -22,7 +22,7 @@ const obj = (properties: Obj, required: string[] = []) => ({ type: 'object', pro
 const ICCID = { type: 'string', description: 'ICCID completo da linha (começa com 89, 19 ou 20 dígitos)' };
 const SOLICITANTE = {
   type: 'string',
-  description: 'Nome de quem pediu, exatamente como aparece entre colchetes na conversa (em grupo). Só essa pessoa poderá confirmar.',
+  description: 'Nome de quem pediu, exatamente como aparece entre colchetes na conversa (em grupo). Fica registrado na solicitação.',
 };
 
 /** Ações que mudam a linha/pedido: só executam com a confirmação "SIM <código>" de quem pediu. */
@@ -55,7 +55,8 @@ const today = () => new Date().toISOString().slice(0, 10);
  *    reiniciar, novo pedido): a ferramenta registra a solicitação e manda no
  *    grupo um código ("responda SIM 4821"). Quem confere a confirmação é o
  *    sistema, não a IA (`handleConfirmation`, chamado pelo pipeline de
- *    mensagens): só vale o código certo, de quem pediu, dentro de 30 min.
+ *    mensagens): vale o código certo, de qualquer pessoa da conversa, em até
+ *    30 min (fica registrado quem confirmou).
  *    Confirmado, executa na API na hora e avisa o resultado na conversa.
  *    O registro fica em ai_pending_actions (fora da lista de aprovação do app)
  *    e aparece em Solicitações.
@@ -347,7 +348,7 @@ export class UnimobileToolsService {
    * Nada é executado aqui: só quando quem pediu responder "SIM <código>".
    */
   private action(name: string, description: string, parameters: Obj): AiTool {
-    const full = `${description} Não pergunte "confirma?": a ferramenta registra a solicitação e já manda no grupo a mensagem com o código; a ação só acontece quando quem pediu responder SIM + código. Com várias solicitações, chame uma vez para cada uma.`;
+    const full = `${description} Não pergunte "confirma?": a ferramenta registra a solicitação e já manda no grupo a mensagem com o código; a ação só acontece quando alguém do grupo responder SIM + código. Com várias solicitações, chame uma vez para cada uma.`;
     return this.tool(name, full, parameters, async (input, ctx) => {
       const problem = await this.validateAction(name, input, ctx);
       if (problem) return { output: { ok: false, ...problem } };
@@ -385,10 +386,9 @@ export class UnimobileToolsService {
         });
       }
 
-      const who = requester.name ? `${requester.name}, ` : '';
       await this.notifyCtx(
         ctx,
-        `🔐 *${label}*\n${who}para confirmar, responda *SIM ${code}* (vale por 30 minutos).`,
+        `🔐 *${label}*\nPara confirmar, responda *SIM ${code}* (vale por 30 minutos).`,
       );
       this.logger.log(`unimobile ${name} aguardando confirmação ${code} (conv ${ctx.conversationId})`);
       return {
@@ -397,7 +397,7 @@ export class UnimobileToolsService {
           status: 'aguardando_confirmacao',
           codigo: code,
           instrucao:
-            'A mensagem com o código de confirmação JÁ foi enviada na conversa. Não repita o código nem diga que foi feito. A ação será executada automaticamente quando quem pediu responder SIM + código.',
+            'A mensagem com o código de confirmação JÁ foi enviada na conversa. Não repita o código nem diga que foi feito. A ação será executada automaticamente quando alguém responder SIM + código.',
         },
       };
     });
@@ -455,20 +455,13 @@ export class UnimobileToolsService {
       if (ctx) await this.notifyCtx(ctx, `Não encontrei uma solicitação aberta com o código ${code} (pode ter expirado). Peça de novo, por favor.`).catch(() => undefined);
       return true;
     }
-    const preview = record.preview as Obj;
-    const key = senderKey(message);
-    if (preview.requesterKey && key && preview.requesterKey !== key) {
-      if (ctx) {
-        const name = preview.requesterName ? String(preview.requesterName) : 'quem pediu';
-        await this.notifyCtx(ctx, `Só ${name} pode confirmar a solicitação ${code}.`).catch(() => undefined);
-      }
-      return true;
-    }
+    // Qualquer pessoa do grupo pode confirmar; fica registrado quem confirmou.
+    const confirmedBy = message.senderName?.trim() || senderKey(message);
 
     // Uma confirmação só: quem chegar primeiro leva (mensagens duplicadas não executam 2x).
     const claimed = await this.prisma.aiPendingAction.updateMany({
       where: { id: record.id, status: 'PENDING' },
-      data: { status: 'APPROVED', approvedAt: new Date(), approvedBy: key ?? message.senderName ?? null },
+      data: { status: 'APPROVED', approvedAt: new Date(), approvedBy: confirmedBy },
     });
     if (claimed.count === 0) return true;
 

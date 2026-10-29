@@ -230,6 +230,9 @@ function RequestRow({ request: r }: { request: GroupRequest }) {
                     {a.status === 'awaiting-confirmation' && a.code && (
                       <span className="text-zinc-400">código {a.code}</span>
                     )}
+                    {a.confirmedBy && a.status !== 'awaiting-confirmation' && (
+                      <span className="text-zinc-400">confirmada por {a.confirmedBy}</span>
+                    )}
                     {a.status === 'failed' && a.error && <span className="text-red-600 dark:text-red-400">{a.error}</span>}
                   </li>
                 );

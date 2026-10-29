@@ -225,7 +225,7 @@ export class GroupMonitorService {
           orderBy: { createdAt: 'asc' },
           select: {
             id: true, toolName: true, args: true, preview: true, status: true, expiresAt: true,
-            createdAt: true, approvedAt: true, rejectedReason: true, executionResult: true,
+            createdAt: true, approvedAt: true, approvedBy: true, rejectedReason: true, executionResult: true,
           },
         })
       : [];
@@ -316,6 +316,7 @@ function toAction(a: {
   expiresAt: Date;
   createdAt: Date;
   approvedAt: Date | null;
+  approvedBy: string | null;
   rejectedReason: string | null;
   executionResult: unknown;
 }) {
@@ -341,6 +342,7 @@ function toAction(a: {
     status,
     createdAt: a.createdAt,
     confirmedAt: a.approvedAt,
+    confirmedBy: a.approvedBy,
     error: a.rejectedReason,
   };
 }

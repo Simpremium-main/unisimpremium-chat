@@ -187,12 +187,12 @@ describe('ferramentas Uni Mobile', () => {
     expect(calls[0].body).toEqual({ iccId: '89012807332692737706' });
   });
 
-  it('confirmação de outra pessoa não vale', async () => {
-    const { run, calls, inbound, sent } = setup({ '/orders/activateLine': { Result: 'Ok' } });
+  it('qualquer pessoa do grupo confirma e fica registrado quem', async () => {
+    const { run, calls, actions, inbound } = setup({ '/orders/activateLine': { Result: 'Ok' } });
     const { codigo } = (await run('uni_ativar_linha', { iccid: ICCID, solicitante: 'Ana' })).output as any;
     expect(await inbound('m2', `SIM ${codigo}`, 'Bruno')).toBe(true);
-    expect(calls).toHaveLength(0);
-    expect(sent().at(-1)).toMatch(/Só Ana pode confirmar/);
+    expect(calls).toHaveLength(1);
+    expect(actions[0]).toMatchObject({ status: 'EXECUTED', approvedBy: 'Bruno' });
   });
 
   it('"sim" citando a mensagem do código também confirma', async () => {

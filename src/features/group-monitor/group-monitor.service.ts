@@ -51,6 +51,7 @@ export interface GroupAction {
   status: ActionStatus;
   createdAt: string;
   confirmedAt: string | null;
+  confirmedBy: string | null;
   error: string | null;
 }
 
