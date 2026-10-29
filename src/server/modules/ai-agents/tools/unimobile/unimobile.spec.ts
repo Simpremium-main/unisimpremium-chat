@@ -17,7 +17,7 @@ const ICCID = '89012807332692737746';
 const env = (vars: Record<string, string>) => ({ get: (k: string) => vars[k] }) as any;
 const ctx = { organizationId: 'o1', conversationId: 'c1', contactId: 'ct1', channelId: 'ch1', agentId: 'a1', runId: 'r1' };
 
-function setup(responses: Record<string, unknown>, opts: { group?: boolean; partner?: string; vars?: Record<string, string> } = {}) {
+function setup(responses: Record<string, unknown>, opts: { group?: boolean; partner?: string; vars?: Record<string, string>; meta?: Record<string, unknown> } = {}) {
   const calls: Array<{ method: string; url: string; body?: unknown; auth: string }> = [];
   (global as any).fetch = jest.fn(async (url: string, init: any) => {
     calls.push({ method: init.method, url, body: init.body ? JSON.parse(init.body) : undefined, auth: init.headers.Authorization });
@@ -35,7 +35,7 @@ function setup(responses: Record<string, unknown>, opts: { group?: boolean; part
     conversation: {
       findUnique: jest.fn(async () => ({
         isGroup: opts.group ?? true,
-        metadata: opts.partner ? { groupPartner: opts.partner } : {},
+        metadata: { ...(opts.partner ? { groupPartner: opts.partner } : {}), ...opts.meta },
         organizationId: 'o1',
         contactId: 'ct1',
         channelId: 'ch1',
@@ -225,6 +225,22 @@ describe('ferramentas Uni Mobile', () => {
     expect(((await run('uni_recarregar', { iccid: ICCID, gb: 2 })).output as any).ok).toBe(false);
     expect(((await run('uni_criar_pedido', { tipo: 'esim', tarifa: 'EUR_017D_ILIM_SODA_UNIG_CHIP', data_inicio: '2099-01-01', nome: 'Ana Silva', email: 'a@b.com', documento: '12345' })).output as any).instrucao).toMatch(/ESIM/);
     expect(actions).toHaveLength(0);
+  });
+
+  it('reseller_id cadastrado no grupo vale sobre o do ambiente', async () => {
+    const { run, calls, inbound } = setup({ [`/orders/topup/${ICCID}`]: { Result: 'Ok' } }, { meta: { groupResellerId: 555 } });
+    const { codigo } = (await run('uni_recarregar', { iccid: ICCID, gb: 1, solicitante: 'Ana' })).output as any;
+    await inbound('m2', `SIM ${codigo}`, 'Ana');
+    expect(calls[0].body).toMatchObject({ reseller_id: 555, topUp: 1 });
+  });
+
+  it('grupo sem reseller_id (e sem padrão) não registra ação que precisa dele', async () => {
+    const { run, actions } = setup({}, { vars: { UNIMOBILE_RESELLER_ID: '' } });
+    const out: any = (await run('uni_cancelar_pedido', { iccid: ICCID })).output;
+    expect(out.instrucao).toMatch(/reseller_id/);
+    expect(actions).toHaveLength(0);
+    // Ativar e reenviar e-mail não precisam dele.
+    expect(((await run('uni_ativar_linha', { iccid: ICCID })).output as any).status).toBe('aguardando_confirmacao');
   });
 
   it('token do parceiro do grupo', async () => {

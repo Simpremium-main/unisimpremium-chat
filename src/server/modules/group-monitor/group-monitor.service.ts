@@ -104,6 +104,7 @@ export class GroupMonitorService {
         requests: byConv.get(c.id)?.requests ?? 0,
         lastRequestAt: byConv.get(c.id)?.last_request_at ?? null,
         partner: typeof meta.groupPartner === 'string' ? meta.groupPartner : null,
+        resellerId: typeof meta.groupResellerId === 'number' ? meta.groupResellerId : null,
         participants: typeof meta.groupParticipants === 'number' ? meta.groupParticipants : null,
         left: meta.groupLeft === true,
         syncedAt: typeof meta.groupSyncedAt === 'string' ? meta.groupSyncedAt : null,
@@ -127,6 +128,21 @@ export class GroupMonitorService {
       data: { metadata: meta as Prisma.InputJsonValue },
     });
     return { id: conv.id, partner: value };
+  }
+
+  /** reseller_id do cliente do grupo na API Uni Mobile (ações de recarga, pedido etc.). */
+  async setResellerId(organizationId: string, access: ChannelAccess, conversationId: string, resellerId: number | null) {
+    const conv = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, organizationId, isGroup: true, deletedAt: null, ...this.channelFilter(access) },
+      select: { id: true, metadata: true },
+    });
+    if (!conv) throw new NotFoundException('Grupo não encontrado');
+    const meta = { ...((conv.metadata ?? {}) as Record<string, unknown>), groupResellerId: resellerId };
+    await this.prisma.conversation.update({
+      where: { id: conv.id },
+      data: { metadata: meta as Prisma.InputJsonValue },
+    });
+    return { id: conv.id, resellerId };
   }
 
   async requests(organizationId: string, access: ChannelAccess, filters: RequestFilters) {

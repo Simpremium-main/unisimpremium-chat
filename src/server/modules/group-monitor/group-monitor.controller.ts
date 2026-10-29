@@ -6,6 +6,7 @@ import type { ChannelAccess } from '../iam/channel-access/channel-access.service
 import { GroupMonitorService } from './group-monitor.service';
 import { GroupSyncService } from './group-sync.service';
 import { SetPartnerDto } from './dto/set-partner.dto';
+import { SetResellerDto } from './dto/set-reseller.dto';
 
 @ApiTags('Group monitor')
 @ApiBearerAuth()
@@ -39,6 +40,17 @@ export class GroupMonitorController {
     @Body() body: SetPartnerDto,
   ) {
     return this.service.setPartner(orgId, access, id, body.partner ?? null);
+  }
+
+  @Patch('groups/:id/reseller')
+  @ApiOperation({ summary: 'Define o reseller_id (cliente na API Uni Mobile) do grupo' })
+  setReseller(
+    @CurrentOrg('id') orgId: string,
+    @CurrentChannelAccess() access: ChannelAccess,
+    @Param('id') id: string,
+    @Body() body: SetResellerDto,
+  ) {
+    return this.service.setResellerId(orgId, access, id, body.resellerId ?? null);
   }
 
   @Get('requests')

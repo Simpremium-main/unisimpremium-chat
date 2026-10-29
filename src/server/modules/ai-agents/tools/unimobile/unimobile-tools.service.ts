@@ -424,8 +424,8 @@ export class UnimobileToolsService {
     }
     // reseller_id: exigido por recarga, extensão, alteração, cancelamento e novo pedido.
     const needsReseller = ['uni_recarregar', 'uni_estender_plano', 'uni_alterar_pedido', 'uni_cancelar_pedido', 'uni_criar_pedido'];
-    if (needsReseller.includes(name) && !this.api.credentials(await this.partner(ctx)).resellerId) {
-      return { instrucao: 'Essa ação não está configurada no sistema (falta o reseller_id). Passe para a equipe.' };
+    if (needsReseller.includes(name) && !(await this.creds(ctx)).resellerId) {
+      return { instrucao: 'Este grupo ainda não tem o reseller_id cadastrado (tela Grupos). Diga que a equipe precisa concluir o cadastro e passe para a equipe.' };
     }
     return null;
   }
@@ -507,7 +507,7 @@ export class UnimobileToolsService {
     });
     if (!conv) throw new Error('Conversa não existe mais');
     const a = (record.args ?? {}) as Obj;
-    const creds = this.api.credentials(groupPartner(conv.metadata));
+    const creds = credentialsFor(this.api, conv.metadata);
     const iccId = normalizeIccid(a.iccid);
     const reseller = creds.resellerId;
     const label = UNIMOBILE_ACTIONS[record.toolName]?.label(a) ?? record.toolName;
@@ -674,12 +674,8 @@ export class UnimobileToolsService {
   // ─── apoio ────────────────────────────────────────────────────────
 
   private async creds(ctx: ToolContext): Promise<UnimobileCredentials> {
-    return this.api.credentials(await this.partner(ctx));
-  }
-
-  private async partner(ctx: ToolContext): Promise<string | null> {
     const conv = await this.prisma.conversation.findUnique({ where: { id: ctx.conversationId }, select: { metadata: true } });
-    return groupPartner(conv?.metadata);
+    return credentialsFor(this.api, conv?.metadata);
   }
 
   private async isGroup(ctx: ToolContext): Promise<boolean> {
@@ -726,6 +722,21 @@ function messageText(content: unknown): string {
   const c = (content ?? {}) as { text?: unknown; caption?: unknown };
   return [c.text, c.caption].find((v) => typeof v === 'string') as string ?? '';
 }
+
+/**
+ * Credenciais do grupo: token do parceiro (ou o padrão) e o reseller_id
+ * cadastrado no grupo (tela Grupos), que vale sobre o do ambiente.
+ */
+export function credentialsFor(api: UnimobileClient, metadata: unknown): UnimobileCredentials {
+  const creds = api.credentials(groupPartner(metadata));
+  const own = groupResellerId(metadata);
+  return own ? { ...creds, resellerId: own } : creds;
+}
+
+export const groupResellerId = (metadata: unknown): number | null => {
+  const v = Number((metadata as Obj | null)?.groupResellerId);
+  return Number.isInteger(v) && v > 0 ? v : null;
+};
 
 const groupPartner = (metadata: unknown): string | null => {
   const p = (metadata as Obj | null)?.groupPartner;

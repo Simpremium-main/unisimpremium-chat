@@ -18,6 +18,8 @@ export interface MonitoredGroup {
   requests: number;
   lastRequestAt: string | null;
   partner: string | null;
+  /** reseller_id do cliente na API Uni Mobile. */
+  resellerId: number | null;
   participants: number | null;
   left: boolean;
   syncedAt: string | null;
@@ -81,6 +83,9 @@ export const groupMonitorService = {
   },
   async setPartner(id: string, partner: string | null): Promise<void> {
     await api.patch(`/group-monitor/groups/${id}/partner`, { partner });
+  },
+  async setResellerId(id: string, resellerId: number | null): Promise<void> {
+    await api.patch(`/group-monitor/groups/${id}/reseller`, { resellerId });
   },
   async requests(params: {
     conversationId?: string;

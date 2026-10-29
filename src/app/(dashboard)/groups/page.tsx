@@ -13,6 +13,7 @@ import {
   BotOff,
   RefreshCw,
   Building2,
+  KeyRound,
   LogOut,
 } from 'lucide-react';
 import { useOrgId } from '@/hooks/use-org-query-key';
@@ -187,7 +188,10 @@ function GroupCard({ group: g, onSaved }: { group: MonitoredGroup; onSaved: () =
             {g.participants != null ? ` · ${g.participants} participantes` : ''}
           </p>
 
-          <PartnerField group={g} onSaved={onSaved} />
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <PartnerField group={g} onSaved={onSaved} />
+            <ResellerField group={g} onSaved={onSaved} />
+          </div>
 
           {g.lastMessage ? (
             <p className="mt-2 truncate text-sm text-zinc-600 dark:text-zinc-300">
@@ -241,7 +245,7 @@ function PartnerField({ group, onSaved }: { group: MonitoredGroup; onSaved: () =
   };
 
   return (
-    <label className="mt-2 flex items-center gap-2">
+    <label className="flex min-w-[220px] flex-1 items-center gap-2">
       <Building2 className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
       <input
         type="text"
@@ -258,6 +262,55 @@ function PartnerField({ group, onSaved }: { group: MonitoredGroup; onSaved: () =
         }}
         className={`w-full max-w-xs rounded-md border px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900 dark:text-zinc-100 ${
           group.partner ? 'border-zinc-200 dark:border-zinc-700' : 'border-amber-300 dark:border-amber-700'
+        }`}
+      />
+    </label>
+  );
+}
+
+/** reseller_id do cliente na API Uni Mobile: sem ele, recarga, extensão, alteração, cancelamento e pedido novo não rodam. */
+function ResellerField({ group, onSaved }: { group: MonitoredGroup; onSaved: () => void }) {
+  const current = group.resellerId != null ? String(group.resellerId) : '';
+  const [value, setValue] = useState(current);
+  useEffect(() => setValue(current), [current]);
+
+  const save = useMutation({
+    mutationFn: (resellerId: number | null) => groupMonitorService.setResellerId(group.id, resellerId),
+    onSuccess: () => {
+      onSaved();
+      toast.success('Reseller ID salvo');
+    },
+    onError: () => toast.error('Não foi possível salvar o Reseller ID.'),
+  });
+
+  const commit = () => {
+    const next = value.trim();
+    if (next === current) return;
+    if (next && !/^\d+$/.test(next)) {
+      toast.error('O Reseller ID deve ser um número.');
+      setValue(current);
+      return;
+    }
+    save.mutate(next ? Number(next) : null);
+  };
+
+  return (
+    <label className="flex items-center gap-2" title="reseller_id do cliente na API Uni Mobile">
+      <KeyRound className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder="Reseller ID"
+        value={value}
+        disabled={save.isPending}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          if (e.key === 'Escape') setValue(current);
+        }}
+        className={`w-32 rounded-md border px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900 dark:text-zinc-100 ${
+          group.resellerId ? 'border-zinc-200 dark:border-zinc-700' : 'border-amber-300 dark:border-amber-700'
         }`}
       />
     </label>
