@@ -17,6 +17,18 @@ export interface MonitoredGroup {
   } | null;
   orderQueries: number;
   lastOrderQueryAt: string | null;
+  partner: string | null;
+  participants: number | null;
+  left: boolean;
+  syncedAt: string | null;
+}
+
+export interface GroupSyncResult {
+  channels: number;
+  groups: number;
+  created: number;
+  left: number;
+  errors: Array<{ channel: string; message: string }>;
 }
 
 export type QueryOutcome = 'found' | 'not-found' | 'unverified' | 'error' | 'unknown';
@@ -46,6 +58,13 @@ export const groupMonitorService = {
   async groups(): Promise<MonitoredGroup[]> {
     const { data } = await api.get('/group-monitor/groups');
     return data.data ?? data;
+  },
+  async syncGroups(): Promise<GroupSyncResult> {
+    const { data } = await api.post('/group-monitor/groups/sync', {}, { timeout: 120_000 });
+    return data.data ?? data;
+  },
+  async setPartner(id: string, partner: string | null): Promise<void> {
+    await api.patch(`/group-monitor/groups/${id}/partner`, { partner });
   },
   async orderQueries(params: { conversationId?: string; orderId?: string; page?: number }): Promise<OrderQueriesPage> {
     const { data } = await api.get('/group-monitor/order-queries', {

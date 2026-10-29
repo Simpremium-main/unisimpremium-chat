@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { ChannelAccess } from '../iam/channel-access/channel-access.service';
@@ -46,6 +46,7 @@ export class GroupMonitorService {
         aiEnabled: true,
         lastMessageAt: true,
         createdAt: true,
+        metadata: true,
         contact: { select: { name: true, avatarUrl: true } },
         channel: { select: { id: true, name: true, aiEnabled: true } },
         messages: {
@@ -69,8 +70,9 @@ export class GroupMonitorService {
       : [];
     const byConv = new Map(counts.map((c) => [c.conversation_id, c]));
 
-    return convs.map((c) => {
+    const groups = convs.map((c) => {
       const last = c.messages[0];
+      const meta = (c.metadata ?? {}) as Record<string, unknown>;
       return {
         id: c.id,
         name: c.contact?.name ?? 'Grupo sem nome',
@@ -91,8 +93,30 @@ export class GroupMonitorService {
           : null,
         orderQueries: byConv.get(c.id)?.queries ?? 0,
         lastOrderQueryAt: byConv.get(c.id)?.last_query_at ?? null,
+        partner: typeof meta.groupPartner === 'string' ? meta.groupPartner : null,
+        participants: typeof meta.groupParticipants === 'number' ? meta.groupParticipants : null,
+        left: meta.groupLeft === true,
+        syncedAt: typeof meta.groupSyncedAt === 'string' ? meta.groupSyncedAt : null,
       };
     });
+    // Grupos de onde o número saiu vão para o fim.
+    return groups.sort((a, b) => Number(a.left) - Number(b.left));
+  }
+
+  /** Parceiro (operação) do grupo — define de quem são os pedidos consultados nele. */
+  async setPartner(organizationId: string, access: ChannelAccess, conversationId: string, partner: string | null) {
+    const conv = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, organizationId, isGroup: true, deletedAt: null, ...this.channelFilter(access) },
+      select: { id: true, metadata: true },
+    });
+    if (!conv) throw new NotFoundException('Grupo não encontrado');
+    const value = partner?.trim().slice(0, 80) || null;
+    const meta = { ...((conv.metadata ?? {}) as Record<string, unknown>), groupPartner: value };
+    await this.prisma.conversation.update({
+      where: { id: conv.id },
+      data: { metadata: meta as Prisma.InputJsonValue },
+    });
+    return { id: conv.id, partner: value };
   }
 
   async orderQueries(organizationId: string, access: ChannelAccess, filters: OrderQueryFilters) {

@@ -85,6 +85,20 @@ export class ZappfyHttpClient {
     });
   }
 
+  /**
+   * Todos os grupos em que o número está (uazapi `GET /group/list`), com
+   * os participantes. Formato varia entre versões: array ou `{ groups }`.
+   */
+  async listGroups(channel: Channel): Promise<any[]> {
+    const client = this.createClient(channel);
+    const response = await client.get('/group/list', { params: { force: true, noparticipants: false } });
+    const data = response.data;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.groups)) return data.groups;
+    if (Array.isArray(data?.data)) return data.data;
+    return [];
+  }
+
   async fetchMessages(
     channel: Channel,
     chatId: string,

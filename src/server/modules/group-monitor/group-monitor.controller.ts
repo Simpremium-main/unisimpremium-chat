@@ -1,9 +1,11 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../common/guards';
 import { CurrentChannelAccess, CurrentOrg, RequirePage } from '../../common/decorators';
 import type { ChannelAccess } from '../iam/channel-access/channel-access.service';
 import { GroupMonitorService } from './group-monitor.service';
+import { GroupSyncService } from './group-sync.service';
+import { SetPartnerDto } from './dto/set-partner.dto';
 
 @ApiTags('Group monitor')
 @ApiBearerAuth()
@@ -11,12 +13,32 @@ import { GroupMonitorService } from './group-monitor.service';
 @RequirePage('inbox')
 @Controller('group-monitor')
 export class GroupMonitorController {
-  constructor(private readonly service: GroupMonitorService) {}
+  constructor(
+    private readonly service: GroupMonitorService,
+    private readonly sync: GroupSyncService,
+  ) {}
 
   @Get('groups')
   @ApiOperation({ summary: 'Grupos de WhatsApp em que o número está' })
   groups(@CurrentOrg('id') orgId: string, @CurrentChannelAccess() access: ChannelAccess) {
     return this.service.groups(orgId, access);
+  }
+
+  @Post('groups/sync')
+  @ApiOperation({ summary: 'Busca no WhatsApp todos os grupos em que o número está' })
+  syncGroups(@CurrentOrg('id') orgId: string, @CurrentChannelAccess() access: ChannelAccess) {
+    return this.sync.syncAll(orgId, access);
+  }
+
+  @Patch('groups/:id/partner')
+  @ApiOperation({ summary: 'Define o parceiro (operação) do grupo' })
+  setPartner(
+    @CurrentOrg('id') orgId: string,
+    @CurrentChannelAccess() access: ChannelAccess,
+    @Param('id') id: string,
+    @Body() body: SetPartnerDto,
+  ) {
+    return this.service.setPartner(orgId, access, id, body.partner ?? null);
   }
 
   @Get('order-queries')
