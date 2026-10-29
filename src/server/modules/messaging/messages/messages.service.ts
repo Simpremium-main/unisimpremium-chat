@@ -241,7 +241,9 @@ export class MessagesService {
       where: { id: organizationId },
       select: { aiAutoDisableOnHuman: true },
     });
+    // Grupo: a IA continua ativa quando um atendente responde (ver AgentRouter).
     const shouldDisableAi =
+      !conversation.isGroup &&
       conversation.aiEnabled !== false &&
       conversation.aiEnabled !== true &&
       (org?.aiAutoDisableOnHuman ?? true);

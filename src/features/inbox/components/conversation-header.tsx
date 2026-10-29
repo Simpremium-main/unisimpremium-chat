@@ -21,9 +21,7 @@ import {
   PanelLeftOpen,
   CheckCheck,
 } from 'lucide-react';
-import { ConversationAiToggle } from './conversation-ai-toggle';
 import { AssignmentPopover } from './assignment-popover';
-import { AgentPinPopover } from './agent-pin-popover';
 import { PipelinePopover } from './pipeline-popover';
 import { useOrgFeatures } from '@/features/settings/hooks/use-org-features';
 import { inboxService, type Conversation } from '../services/inbox.service';
@@ -239,59 +237,6 @@ export function ConversationHeader({
       </div>
 
       <div className="flex min-w-0 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] md:flex-wrap md:gap-1.5 md:overflow-visible">
-        {can('conversations.ai') && (
-          <AgentPinPopover conversation={conversation} onChanged={onUpdate} />
-        )}
-        {can('conversations.ai') && (
-        <ConversationAiToggle
-          conversation={conversation}
-          disabled={isLoading}
-          onChange={async (next) => {
-            await handleAction(
-              () => inboxService.toggleAi(conversation.id, next),
-              next === null
-                ? 'IA voltou pro padrão (segue config global)'
-                : next
-                  ? 'IA forçada nesta conversa (sobrepõe global)'
-                  : 'IA pausada nesta conversa',
-            );
-          }}
-          onRestart={
-            isAdmin
-              ? async () => {
-                  if (
-                    !(await confirm({
-                      title: 'Reiniciar a IA nesta conversa?',
-                      description:
-                        'Para testes: a IA passa a tratar a conversa como nova. Ignora as mensagens anteriores (continuam visíveis aqui), esquece pedidos confirmados, fretes, memória do contato e transferências, volta a IA para o padrão, descarta casos abertos em Aprendizado e deixa o robô recomeçar.',
-                      confirmText: 'Reiniciar',
-                      tone: 'danger',
-                    }))
-                  )
-                    return;
-                  await handleAction(() => inboxService.restartAi(conversation.id), 'IA reiniciada — a próxima mensagem começa do zero');
-                  // Saiu de "IA Aguardando"/"IA para Humano" e casos de Aprendizado.
-                  queryClient.invalidateQueries({ queryKey: ['inbox-view-counts'] });
-                  queryClient.invalidateQueries({ queryKey: ['ai-learning-count'] });
-                  queryClient.invalidateQueries({ queryKey: ['ai-learning-requests'] });
-                }
-              : undefined
-          }
-          onEngage={async () => {
-            await handleAction(async () => {
-              const result = await inboxService.engageAi(conversation.id);
-              if (!result.engaged) {
-                throw new Error(
-                  result.reason
-                    ? `IA não pôde engajar: ${result.reason}`
-                    : 'Não foi possível engajar a IA',
-                );
-              }
-              return result;
-            }, 'IA engajada — vai responder em segundos');
-          }}
-        />
-        )}
         <button
           onClick={handleSync}
           disabled={isSyncing}

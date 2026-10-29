@@ -221,7 +221,10 @@ export class AgentRouterService {
     //   org.aiEnabled (true/false) — global
     // Qualquer "false" mais específico bloqueia mesmo se mais genérico está ON.
     // "true" mais específico libera mesmo se mais genérico está OFF.
-    const convOverride = conversation.aiEnabled;
+    // Grupo: a IA fica sempre ativa esperando ser chamada — resposta de
+    // atendente, transferência ou "escalar" não a desligam no grupo inteiro
+    // (só canal/org desligam).
+    const convOverride = conversation.isGroup ? null : conversation.aiEnabled;
 
     if (convOverride === false) {
       return { handle: false, reason: 'conversation.aiEnabled=force-off' };

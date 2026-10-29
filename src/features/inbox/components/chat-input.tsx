@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useAudioRecorder } from '../hooks/use-audio-recorder';
 import { MemberAvatar } from '@/components/ui/member-avatar';
 import { fillQuickReply, type QuickReply, type QuickReplyVars } from '@/features/settings/services/quick-replies.service';
-import { BotTriggerButton, DraftReplyButton, QuickReplyPanel, QuoteButton, filterQuickReplies, useQuickReplies } from './composer-tools';
+import { QuickReplyPanel, filterQuickReplies, useQuickReplies } from './composer-tools';
 
 interface ChatInputProps {
   onSend: (text: string) => Promise<void>;
@@ -423,8 +423,9 @@ export function ChatInput({
         </div>
       )}
       <div className="mb-2 flex items-center gap-3">
-        {/* Esquerda: assinatura (ou aviso da nota) + anexo, respostas rápidas e
-            robô; direita: quem está na conversa e Mensagem | Nota interna. */}
+        {/* Esquerda: assinatura (ou aviso da nota) + anexo e respostas rápidas;
+            direita: quem está na conversa e Mensagem | Nota interna. Na Uni a IA
+            fica sempre ativa nos grupos: sem robô, rascunho da IA nem cotação aqui. */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
           {signature && !noteMode ? (
             <SignatureBar {...signature} />
@@ -462,29 +463,6 @@ export function ChatInput({
             >
               <Zap className="h-4 w-4" />
             </button>
-            {conversationId && !noteMode && <BotTriggerButton conversationId={conversationId} className={TOOL_BUTTON} />}
-            {conversationId && !noteMode && (
-              <DraftReplyButton
-                conversationId={conversationId}
-                onSend={onSend}
-                onEdit={(value) => {
-                  setText(value);
-                  requestAnimationFrame(() => textareaRef.current?.focus());
-                }}
-                className={TOOL_BUTTON}
-              />
-            )}
-            {conversationId && !noteMode && (
-              <QuoteButton
-                conversationId={conversationId}
-                onSend={onSend}
-                onEdit={(value) => {
-                  setText(value);
-                  requestAnimationFrame(() => textareaRef.current?.focus());
-                }}
-                className={TOOL_BUTTON}
-              />
-            )}
           </div>
         </div>
         {viewers && viewers.length > 0 && <ViewersIndicator viewers={viewers} />}

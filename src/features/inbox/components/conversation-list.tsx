@@ -46,7 +46,6 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useInboxPreferences } from '../hooks/use-inbox-preferences';
 import { ConversationContextMenu } from './conversation-context-menu';
 import { NewConversationDialog } from './new-conversation-dialog';
-import { BulkAiPopover } from './bulk-ai-popover';
 import { BulkPipelinePopover } from './bulk-pipeline-popover';
 import { useOrgFeatures } from '@/features/settings/hooks/use-org-features';
 import { pipelinesService } from '@/features/pipelines/services/pipelines.service';
@@ -1324,12 +1323,6 @@ export function ConversationList({ activeId, onSelect, viewId, tagId }: Conversa
               <FolderPlus className="h-3.5 w-3.5" />
             </button>
           )}
-          <BulkAiPopover
-            count={selectedIds.size}
-            disabled={bulkLoading}
-            onSetOverride={handleBulkSetAi}
-            onEngage={handleBulkEngageAi}
-          />
           {pipelinesEnabled && (
             <BulkPipelinePopover
               count={selectedIds.size}
@@ -1514,7 +1507,7 @@ export function ConversationList({ activeId, onSelect, viewId, tagId }: Conversa
                               <ResponderStack
                                 ids={conv.responderIds ?? []}
                                 directory={memberDirectory}
-                                aiActive={!!conv.aiActive}
+                                aiActive={false}
                               />
                               {hasUnread && (
                                 <span className="ml-1 inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white">

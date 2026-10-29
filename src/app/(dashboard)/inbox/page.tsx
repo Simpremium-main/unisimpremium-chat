@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation';
 import { MessageSquare } from 'lucide-react';
 import { ConversationList } from '@/features/inbox/components/conversation-list';
 import { ChatPanel } from '@/features/inbox/components/chat-panel';
-import { AgentRunsSidebar } from '@/features/inbox/components/agent-runs-sidebar';
 import { ProjectPanel } from '@/features/inbox/components/project-panel';
 import { useOrgFeatures } from '@/features/settings/hooks/use-org-features';
 import { ContactHistoryPanel } from '@/features/inbox/components/contact-history-panel';
@@ -250,8 +249,6 @@ export default function InboxPage() {
             conversation={activeConversation}
             onConversationUpdate={handleConversationUpdate}
             onConversationClosed={handleConversationClosed}
-            onToggleAgentLogs={toggleAgentLogs}
-            agentLogsOpen={agentLogsOpen}
             onToggleProject={projectsEnabled ? toggleProjectPanel : undefined}
             projectOpen={projectPanelOpen}
             onToggleHistory={toggleHistoryPanel}
@@ -262,13 +259,6 @@ export default function InboxPage() {
             onToggleList={toggleList}
             listHidden={listHidden}
           />
-          {agentLogsOpen && (
-            <AgentRunsSidebar
-              key={`logs-${activeConversation.id}`}
-              conversationId={activeConversation.id}
-              onClose={toggleAgentLogs}
-            />
-          )}
           {historyPanelOpen && (
             <ContactHistoryPanel
               key={`history-${activeConversation.contactId}`}

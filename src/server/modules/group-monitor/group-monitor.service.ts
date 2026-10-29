@@ -89,8 +89,8 @@ export class GroupMonitorService {
         avatarUrl: c.contact?.avatarUrl ?? null,
         status: c.status,
         channel: { id: c.channel.id, name: c.channel.name },
-        // Mesma cascata do AgentRouter: conversa > canal (o global fica na org).
-        aiEnabled: c.aiEnabled ?? c.channel.aiEnabled ?? null,
+        // Grupo: só o canal desliga a IA (o desligamento por conversa não vale; ver AgentRouter).
+        aiEnabled: c.channel.aiEnabled ?? null,
         lastMessageAt: c.lastMessageAt,
         createdAt: c.createdAt,
         lastMessage: last

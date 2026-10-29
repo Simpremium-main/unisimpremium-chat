@@ -23,7 +23,6 @@ import { useSocket } from '../hooks/use-socket';
 import { useAuthStore } from '@/stores/auth-store';
 import { PendingActionsList } from '../pending-actions/pending-actions-list';
 import { ContactTimeline } from './contact-timeline';
-import { AiStatusBar } from './ai-status-bar';
 import { NoteBubble } from './note-bubble';
 import { useConversationNotes } from '../hooks/use-conversation-notes';
 import type { InternalNote } from '../services/inbox.service';
@@ -836,7 +835,6 @@ export function ChatPanel({
         )}
       />
 
-      <AiStatusBar conversationId={conversation.id} />
 
       <PendingActionsList conversationId={conversation.id} />
 
@@ -1278,7 +1276,6 @@ export function ChatPanel({
         )}
       </div>
 
-      {!noteMode && can('conversations.ai') && <QuoteHandoffBar conversation={conversation} messages={messages} />}
       {replyingTo && !noteMode && (
         <ReplyPreviewBar message={replyingTo} onCancel={cancelReply} />
       )}
