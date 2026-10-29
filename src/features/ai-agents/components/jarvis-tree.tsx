@@ -88,26 +88,16 @@ export function JarvisTree() {
 
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          onClick={toggleExpanded}
-          aria-label={expanded ? 'Recolher' : 'Expandir'}
-          className="flex h-7 w-5 items-center justify-center rounded text-zinc-400 hover:bg-zinc-950/5 hover:text-zinc-700 dark:hover:bg-white/5 dark:hover:text-zinc-300"
-        >
-          {expanded ? (
-            <ChevronDown className="size-3.5" />
-          ) : (
-            <ChevronRight className="size-3.5" />
-          )}
-        </button>
+      {/* Mesmo alinhamento dos outros itens do menu; a seta de abrir fica à
+          direita para Jarvis não parecer submenu do item de cima. */}
+      <div className="relative">
         <button
           type="button"
           onClick={goRoot}
-          className={`flex flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-medium ${
+          className={`flex w-full items-center gap-3 rounded-lg p-2 pr-9 text-left text-sm/6 font-medium transition-colors ${
             isAiAgents
               ? 'bg-zinc-950/5 text-zinc-950 dark:bg-white/5 dark:text-white'
-              : 'text-zinc-700 hover:bg-zinc-950/5 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white'
+              : 'text-zinc-500 hover:bg-zinc-950/5 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white'
           }`}
         >
           <Bot className="size-5" />
@@ -119,10 +109,22 @@ export function JarvisTree() {
             </span>
           )}
         </button>
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          aria-label={expanded ? 'Recolher' : 'Expandir'}
+          className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-zinc-400 hover:bg-zinc-950/5 hover:text-zinc-700 dark:hover:bg-white/5 dark:hover:text-zinc-300"
+        >
+          {expanded ? (
+            <ChevronDown className="size-3.5" />
+          ) : (
+            <ChevronRight className="size-3.5" />
+          )}
+        </button>
       </div>
 
       {expanded && (
-        <div className="ml-5 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
+        <div className="ml-4 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
           {visibleTabs.map((t) => {
             const Icon = t.icon;
             const isActive = isAiAgents && activeTab === t.id;
