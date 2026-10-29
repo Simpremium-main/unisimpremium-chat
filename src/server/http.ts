@@ -124,7 +124,7 @@ async function bootstrap(): Promise<ServerInstance> {
   app.useGlobalInterceptors(new LoggingInterceptor(), new ResponseInterceptor());
 
   const swagger = new DocumentBuilder()
-    .setTitle('UniSimpremium API')
+    .setTitle('Uni API')
     .setDescription('Omnichannel customer service API')
     .setVersion('1.0')
     .addBearerAuth()

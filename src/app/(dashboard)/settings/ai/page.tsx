@@ -448,8 +448,8 @@ Reembolso:
             <p className="mt-0.5 text-xs text-zinc-500">
               Quando preenchida, a IA não consegue mandar URL com host fora
               dessa lista — o sistema bloqueia em runtime e força a IA a
-              reescrever sem o link inventado. Match é por sufixo: <code className="font-mono text-[10px]">simpremium.com.br</code> autoriza
-              <code className="ml-1 font-mono text-[10px]">loja.simpremium.com.br</code>. Vazia = não bloqueia (só loga aviso).
+              reescrever sem o link inventado. Match é por sufixo: <code className="font-mono text-[10px]">unimobilesim.com.br</code> autoriza
+              <code className="ml-1 font-mono text-[10px]">loja.unimobilesim.com.br</code>. Vazia = não bloqueia (só loga aviso).
             </p>
             <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
               Recomendado preencher — IA inventou domínios inexistentes em prod.
@@ -458,7 +458,7 @@ Reembolso:
               value={allowedDomainsText}
               onChange={(e) => setAllowedDomainsText(e.target.value)}
               rows={5}
-              placeholder={`simpremium.com.br\nmercadopago.com.br\nstripe.com`}
+              placeholder={`unimobilesim.com.br\nmercadopago.com.br\nstripe.com`}
               className="mt-3 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
             <p className="mt-1 text-[10px] text-zinc-400">

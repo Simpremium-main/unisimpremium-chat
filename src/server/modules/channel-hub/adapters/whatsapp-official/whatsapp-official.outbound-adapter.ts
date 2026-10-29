@@ -84,7 +84,7 @@ export class WhatsAppOfficialOutboundAdapter implements OutboundChannelPort {
   ): Promise<void> {
     throw new Error(
       `WhatsApp Cloud API does not support message deletion (id=${externalMessageId}). ` +
-        'Marcamos a mensagem como deletada apenas no UniSimpremium — ' +
+        'Marcamos a mensagem como deletada apenas na Uni — ' +
         'no app do cliente ela continua existindo (limitação da Meta).',
     );
   }

@@ -44,7 +44,7 @@ import {
   DropdownDivider,
 } from '@/components/ui/dropdown';
 
-// UniSimpremium: grupos de WhatsApp + solicitações feitas à IA neles.
+// Uni: grupos de WhatsApp + solicitações feitas à IA neles.
 // Fora do menu (páginas continuam no endereço): Projetos, Automações,
 // Chatbot, Pipelines e Tags.
 const navItems = [
@@ -77,18 +77,18 @@ export function AppSidebar() {
       <SidebarHeader>
         <Dropdown>
           <DropdownButton className="flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm/6 font-semibold text-zinc-950 hover:bg-zinc-950/5 dark:text-white dark:hover:bg-white/5">
-            {/* Marca SIMPREMIUM (claro/escuro). O nome da organização só
+            {/* Marca UNI (claro/escuro). O nome da organização só
                 aparece quando o usuário participa de mais de uma, pra saber
                 em qual está ao trocar. */}
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <img
-                src="/brand/simpremium-logo.svg"
-                alt="SIMPREMIUM"
+                src="/brand/uni-logo.svg"
+                alt="UNI"
                 className="h-[18px] w-auto self-start dark:hidden"
               />
               <img
-                src="/brand/simpremium-logo-dark.svg"
-                alt="SIMPREMIUM"
+                src="/brand/uni-logo-dark.svg"
+                alt="UNI"
                 className="hidden h-[18px] w-auto self-start dark:block"
               />
               {organizations.length > 1 && (
@@ -221,7 +221,7 @@ function PushMenuItem() {
     } else if (state === 'not-configured') {
       toast.error('As notificações ainda não foram configuradas no servidor.');
     } else if (state === 'denied') {
-      toast.error('Notificações bloqueadas neste aparelho. Libere em Ajustes → Notificações → Simpremium.', { duration: 8_000 });
+      toast.error('Notificações bloqueadas neste aparelho. Libere em Ajustes → Notificações → Uni.', { duration: 8_000 });
     } else if (state === 'on') {
       await disable();
       toast.success('Notificações desativadas neste aparelho');

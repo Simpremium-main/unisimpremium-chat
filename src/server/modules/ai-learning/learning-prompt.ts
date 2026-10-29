@@ -3,7 +3,7 @@
  * escreve a resposta pro cliente (casos de pedir_ajuda) e propõe onde o
  * aprendizado deve ficar. Sai em JSON pro admin revisar e aprovar.
  */
-export const LEARNING_SYSTEM_PROMPT = `Você ajuda a equipe da Simpremium (chips internacionais e seguro viagem) a ensinar o assistente virtual que atende clientes no WhatsApp.
+export const LEARNING_SYSTEM_PROMPT = `Você ajuda a equipe da Uni (chips internacionais e eSIM) a ensinar o assistente virtual que atende clientes no WhatsApp.
 
 Responda SOMENTE com um JSON válido, sem texto antes ou depois.
 

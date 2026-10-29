@@ -7,7 +7,9 @@ import { PrismaService } from '../../../../database/prisma.service';
  * cotação da Simpremium (Pedido Central). Base URL = endpoint completo, ex.:
  * https://pedido-central.vercel.app/api/mcp. Headers do provedor vão junto.
  */
-export const SIMPREMIUM_PROVIDER_NAME = 'Pedido Central (Simpremium)';
+export const SIMPREMIUM_PROVIDER_NAME = 'Pedido Central (Uni)';
+/** Nome antigo do provedor — cadastros feitos antes da troca continuam valendo. */
+const LEGACY_PROVIDER_NAME = 'Pedido Central (Simpremium)';
 
 const TIMEOUT_MS = 30_000;
 
@@ -67,7 +69,12 @@ export class SimpremiumMcpClient {
 
   private async endpoint(organizationId: string): Promise<{ url: string; headers: Record<string, string> }> {
     const provider = await this.prisma.aiTool.findFirst({
-      where: { organizationId, name: SIMPREMIUM_PROVIDER_NAME, isActive: true, deletedAt: null },
+      where: {
+        organizationId,
+        name: { in: [SIMPREMIUM_PROVIDER_NAME, LEGACY_PROVIDER_NAME] },
+        isActive: true,
+        deletedAt: null,
+      },
       select: { httpBaseUrl: true, httpHeaders: true },
     });
     const url = provider?.httpBaseUrl?.trim() || this.config.get<string>('SIMPREMIUM_MCP_URL')?.trim();

@@ -1,4 +1,4 @@
-# unisimpremium
+# Uni
 
 Atendimento omnichannel (WhatsApp, Instagram, Gmail) com equipe humana e agentes de IA — Next.js fullstack (web + API + MCP) na Vercel, com Supabase (Postgres, Realtime, Storage).
 

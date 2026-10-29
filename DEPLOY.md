@@ -1,4 +1,4 @@
-# UniSimpremium — Next.js fullstack na Vercel + Supabase
+# Uni — Next.js fullstack na Vercel + Supabase
 
 Um único projeto Next.js com o front, a API (NestJS) e o servidor MCP.
 

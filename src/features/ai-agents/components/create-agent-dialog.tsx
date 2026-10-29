@@ -140,7 +140,7 @@ export function CreateAgentDialog({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Vendas Simpremium"
+              placeholder="Ex: Atendimento Uni"
               className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
           </div>

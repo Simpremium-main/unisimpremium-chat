@@ -6,10 +6,10 @@ import { Providers } from '@/components/providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'UniSimpremium',
-  description: 'Atendimento da Simpremium: WhatsApp, Instagram e e-mail com equipe e IA',
+  title: 'Uni',
+  description: 'Atendimento da Uni: grupos de WhatsApp com equipe e IA',
   // App na Tela de Início do iPhone (tela cheia, ícone e nome).
-  appleWebApp: { capable: true, title: 'Simpremium', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'Uni', statusBarStyle: 'default' },
   icons: { apple: '/apple-touch-icon.png' },
 };
 

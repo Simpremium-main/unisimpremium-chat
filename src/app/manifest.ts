@@ -6,9 +6,9 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'UniSimpremium',
-    short_name: 'Simpremium',
-    description: 'Atendimento da Simpremium: WhatsApp, Instagram e e-mail com equipe e IA',
+    name: 'Uni',
+    short_name: 'Uni',
+    description: 'Atendimento da Uni: grupos de WhatsApp com equipe e IA',
     id: '/inbox',
     start_url: '/inbox',
     scope: '/',

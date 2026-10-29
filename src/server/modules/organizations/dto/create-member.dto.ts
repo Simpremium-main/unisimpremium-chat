@@ -9,7 +9,7 @@ export class CreateMemberDto {
   @MaxLength(100)
   name: string;
 
-  @ApiProperty({ example: 'ana@simpremium.com.br' })
+  @ApiProperty({ example: 'ana@unimobilesim.com.br' })
   @IsEmail()
   email: string;
 

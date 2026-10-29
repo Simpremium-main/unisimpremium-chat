@@ -88,7 +88,7 @@ export class CustomerOrdersService {
       return {
         ...base,
         status: 'not-configured',
-        message: 'Cadastre o provedor "Pedido Central (Simpremium)" em Jarvis → Tools',
+        message: 'Cadastre o provedor "Pedido Central (Uni)" em Jarvis → Tools',
       };
     }
 

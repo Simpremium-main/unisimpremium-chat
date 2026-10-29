@@ -6,7 +6,7 @@ import { UserCog, Radio, Users, Bell, Building2, KeyRound, Sparkles, Zap } from 
 import { useAccess } from '@/features/access/use-access';
 import { useAuthStore } from '@/stores/auth-store';
 
-// UniSimpremium = IA respondendo status de pedido em grupos de WhatsApp.
+// Uni = IA respondendo status de pedido em grupos de WhatsApp.
 // Abas fora desse uso ficam escondidas (as páginas continuam no endereço):
 // Segmentos, Cobrança de cotação, Pipeline, Projetos, Contatos e Tags.
 const tabs = [

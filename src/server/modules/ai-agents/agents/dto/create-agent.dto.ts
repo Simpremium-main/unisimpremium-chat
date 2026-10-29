@@ -65,7 +65,7 @@ export class CreateAgentDto {
   @IsObject()
   modelParams?: Record<string, unknown>;
 
-  @ApiProperty({ example: 'Você é a assistente virtual da Simpremium...' })
+  @ApiProperty({ example: 'Você é a assistente virtual da Uni...' })
   @IsString()
   @MinLength(10)
   systemPrompt!: string;

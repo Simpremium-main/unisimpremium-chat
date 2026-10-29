@@ -72,7 +72,7 @@ export class InboxViewsService {
 
   /**
    * Builtins que saíram do produto — apagados na próxima listagem. As
-   * inboxes da IA saíram no UniSimpremium (atendimento em grupos).
+   * inboxes da IA saíram na Uni (atendimento em grupos).
    */
   private static readonly RETIRED_BUILTINS = ['Archived', 'IA Ativo', 'IA para Humano', 'IA Aguardando'];
 

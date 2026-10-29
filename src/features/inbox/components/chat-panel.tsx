@@ -616,7 +616,7 @@ export function ChatPanel({
       const ok = window.confirm(
         'Deletar essa mensagem pra todos? ' +
           'Em WhatsApp via Zappfy a mensagem some no app do cliente. ' +
-          'Em WhatsApp Cloud API e Instagram, ela some apenas no UniSimpremium ' +
+          'Em WhatsApp Cloud API e Instagram, ela some apenas na Uni ' +
           '(limitação da Meta — o cliente continua vendo no app dele).',
       );
       if (!ok) return;
@@ -626,7 +626,7 @@ export function ChatPanel({
           toast.success('Mensagem deletada pra todos');
         } else {
           toast.warning(
-            'Mensagem deletada só no UniSimpremium. ' +
+            'Mensagem deletada só na Uni. ' +
               'O cliente ainda vê a mensagem no app dele (limitação do canal).',
           );
         }
@@ -1112,7 +1112,7 @@ export function ChatPanel({
                           title={
                             msg.revokeSucceededRemote
                               ? 'Mensagem deletada pra todos (provider confirmou).'
-                              : 'Deletada apenas no UniSimpremium — o cliente ainda pode estar vendo no app dele.'
+                              : 'Deletada apenas na Uni — o cliente ainda pode estar vendo no app dele.'
                           }
                         >
                           <Ban className="h-3.5 w-3.5 shrink-0" />

@@ -311,7 +311,7 @@ export function EditAgentDialog({
                   className="mt-0.5"
                 />
                 <span>
-                  <span className="block text-sm text-zinc-800 dark:text-zinc-200">Ferramentas Simpremium</span>
+                  <span className="block text-sm text-zinc-800 dark:text-zinc-200">Ferramentas Uni</span>
                   <span className="block text-[11px] text-zinc-500">
                     Cotação de chip e seguro, pedidos, ativações, frete, cupom, roaming, escalar e finalizar
                     atendimento (servidor em Jarvis → Tools → Pedido Central).

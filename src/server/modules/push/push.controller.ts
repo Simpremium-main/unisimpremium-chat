@@ -32,7 +32,7 @@ export class PushController {
   @ApiOperation({ summary: 'Manda uma notificação de teste para os aparelhos do usuário' })
   async test(@CurrentUser('id') userId: string) {
     const sent = await this.push.sendToUser(userId, {
-      title: 'UniSimpremium',
+      title: 'Uni',
       body: 'Notificação de teste: está funcionando ✅',
       url: '/inbox',
       tag: 'push-test',
