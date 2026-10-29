@@ -13,19 +13,23 @@ export const ORDER_TOOLS = [
   'consultar_seguro',
 ];
 
-export interface OrderQueryFilters {
+export type RequestStatus = 'answered-ai' | 'answered-human' | 'pending';
+
+export interface RequestFilters {
   conversationId?: string;
-  orderId?: string;
-  /** Só grupos (padrão) ou todas as conversas. */
-  groupsOnly?: boolean;
+  /** Texto da solicitação ou nome de quem pediu. */
+  q?: string;
+  partner?: string;
+  status?: RequestStatus;
   page?: number;
   limit?: number;
 }
 
 /**
  * Acompanhamento dos grupos de WhatsApp: em quais grupos o número está e
- * quais pedidos foram consultados pela IA (a partir das chamadas de
- * ferramenta gravadas em ai_tool_calls — não precisa de tabela nova).
+ * todas as solicitações feitas à IA neles — mensagens marcadas com
+ * `metadata.groupRequest` pelo InboundMessageProcessor (ver group-trigger.ts),
+ * com a resposta que veio depois e os pedidos consultados nessa resposta.
  */
 @Injectable()
 export class GroupMonitorService {
@@ -59,14 +63,13 @@ export class GroupMonitorService {
 
     const ids = convs.map((c) => c.id);
     const counts = ids.length
-      ? await this.prisma.$queryRaw<Array<{ conversation_id: string; queries: number; last_query_at: Date }>>`
-          SELECT r.conversation_id, COUNT(*)::int AS queries, MAX(tc.created_at) AS last_query_at
-          FROM ai_tool_calls tc
-          JOIN ai_agent_runs r ON r.id = tc.run_id
-          WHERE r.organization_id = ${organizationId}
-            AND r.conversation_id IN (${Prisma.join(ids)})
-            AND tc.tool_name IN (${Prisma.join(ORDER_TOOLS)})
-          GROUP BY r.conversation_id`
+      ? await this.prisma.$queryRaw<Array<{ conversation_id: string; requests: number; last_request_at: Date }>>`
+          SELECT m.conversation_id, COUNT(*)::int AS requests, MAX(m.created_at) AS last_request_at
+          FROM messages m
+          WHERE m.conversation_id IN (${Prisma.join(ids)})
+            AND m.direction = 'INBOUND'
+            AND m.metadata->>'groupRequest' = 'true'
+          GROUP BY m.conversation_id`
       : [];
     const byConv = new Map(counts.map((c) => [c.conversation_id, c]));
 
@@ -91,8 +94,8 @@ export class GroupMonitorService {
               createdAt: last.createdAt,
             }
           : null,
-        orderQueries: byConv.get(c.id)?.queries ?? 0,
-        lastOrderQueryAt: byConv.get(c.id)?.last_query_at ?? null,
+        requests: byConv.get(c.id)?.requests ?? 0,
+        lastRequestAt: byConv.get(c.id)?.last_request_at ?? null,
         partner: typeof meta.groupPartner === 'string' ? meta.groupPartner : null,
         participants: typeof meta.groupParticipants === 'number' ? meta.groupParticipants : null,
         left: meta.groupLeft === true,
@@ -119,101 +122,110 @@ export class GroupMonitorService {
     return { id: conv.id, partner: value };
   }
 
-  async orderQueries(organizationId: string, access: ChannelAccess, filters: OrderQueryFilters) {
+  async requests(organizationId: string, access: ChannelAccess, filters: RequestFilters) {
     const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
     const page = Math.max(filters.page ?? 1, 1);
-    const orderId = filters.orderId?.replace(/\D/g, '');
+    const q = filters.q?.trim();
 
-    const where: Prisma.AiToolCallWhereInput = {
-      toolName: { in: ORDER_TOOLS },
-      run: {
-        organizationId,
-        conversation: {
-          ...(filters.groupsOnly !== false ? { isGroup: true } : {}),
-          ...this.channelFilter(access),
-        },
-        ...(filters.conversationId ? { conversationId: filters.conversationId } : {}),
-      },
-      ...(orderId ? { input: { path: ['orderId'], string_contains: orderId } } : {}),
-    };
+    const conds: Prisma.Sql[] = [
+      Prisma.sql`c.organization_id = ${organizationId}`,
+      Prisma.sql`c.is_group = true`,
+      Prisma.sql`c.deleted_at IS NULL`,
+      Prisma.sql`m.direction = 'INBOUND'`,
+      Prisma.sql`m.metadata->>'groupRequest' = 'true'`,
+    ];
+    if (access !== 'ALL') {
+      conds.push(access.size ? Prisma.sql`c.channel_id IN (${Prisma.join([...access])})` : Prisma.sql`false`);
+    }
+    if (filters.conversationId) conds.push(Prisma.sql`c.id = ${filters.conversationId}`);
+    if (filters.partner) conds.push(Prisma.sql`c.metadata->>'groupPartner' = ${filters.partner}`);
+    if (q) {
+      const like = `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+      conds.push(Prisma.sql`(m.content->>'text' ILIKE ${like} OR m.content->>'caption' ILIKE ${like} OR m.sender_name ILIKE ${like})`);
+    }
+    if (filters.status === 'pending') conds.push(Prisma.sql`r.id IS NULL`);
+    if (filters.status === 'answered-ai') conds.push(Prisma.sql`r.id IS NOT NULL AND r.metadata->>'runId' IS NOT NULL`);
+    if (filters.status === 'answered-human') conds.push(Prisma.sql`r.id IS NOT NULL AND r.metadata->>'runId' IS NULL`);
+    const where = Prisma.join(conds, ' AND ');
 
-    const [total, calls] = await Promise.all([
-      this.prisma.aiToolCall.count({ where }),
-      this.prisma.aiToolCall.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-        select: {
-          id: true,
-          toolName: true,
-          input: true,
-          output: true,
-          error: true,
-          createdAt: true,
-          run: {
-            select: {
-              id: true,
-              triggerMessageId: true,
-              conversation: {
-                select: { id: true, isGroup: true, contact: { select: { name: true } }, channel: { select: { name: true } } },
-              },
-            },
-          },
-        },
-      }),
+    // Resposta = primeira mensagem nossa no grupo depois da solicitação.
+    const from = Prisma.sql`
+      FROM messages m
+      JOIN conversations c ON c.id = m.conversation_id
+      JOIN contacts ct ON ct.id = c.contact_id
+      LEFT JOIN LATERAL (
+        SELECT o.id, o.content, o.created_at, o.metadata, o.sender_name
+        FROM messages o
+        WHERE o.conversation_id = m.conversation_id
+          AND o.direction = 'OUTBOUND'
+          AND o.created_at > m.created_at
+        ORDER BY o.created_at ASC
+        LIMIT 1
+      ) r ON true`;
+
+    const [countRows, rows] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ total: number }>>`SELECT COUNT(*)::int AS total ${from} WHERE ${where}`,
+      this.prisma.$queryRaw<
+        Array<{
+          id: string;
+          conversation_id: string;
+          group_name: string | null;
+          partner: string | null;
+          content: unknown;
+          metadata: unknown;
+          sender_name: string | null;
+          created_at: Date;
+          reply_content: unknown;
+          reply_at: Date | null;
+          reply_sender: string | null;
+          run_id: string | null;
+        }>
+      >`
+        SELECT m.id, m.conversation_id, ct.name AS group_name, c.metadata->>'groupPartner' AS partner,
+               m.content, m.metadata, m.sender_name, m.created_at,
+               r.content AS reply_content, r.created_at AS reply_at, r.sender_name AS reply_sender,
+               r.metadata->>'runId' AS run_id
+        ${from}
+        WHERE ${where}
+        ORDER BY m.created_at DESC
+        LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
     ]);
 
-    const runIds = [...new Set(calls.map((c) => c.run.id))];
-    const triggerIds = [...new Set(calls.map((c) => c.run.triggerMessageId).filter((v): v is string => !!v))];
-    const [triggers, replies] = await Promise.all([
-      triggerIds.length
-        ? this.prisma.message.findMany({
-            where: { id: { in: triggerIds } },
-            select: { id: true, content: true, senderName: true, createdAt: true },
-          })
-        : [],
-      runIds.length
-        ? this.prisma.$queryRaw<Array<{ run_id: string; content: unknown; created_at: Date }>>`
-            SELECT DISTINCT ON (m.metadata->>'runId') m.metadata->>'runId' AS run_id, m.content, m.created_at
-            FROM messages m
-            WHERE m.conversation_id IN (${Prisma.join([...new Set(calls.map((c) => c.run.conversation.id))])})
-              AND m.direction = 'OUTBOUND'
-              AND m.metadata->>'runId' IN (${Prisma.join(runIds)})
-            ORDER BY m.metadata->>'runId', m.created_at ASC`
-        : [],
-    ]);
-    const triggerById = new Map(triggers.map((t) => [t.id, t]));
-    const replyByRun = new Map(replies.map((r) => [r.run_id, r]));
+    // Pedidos consultados pela IA na execução que respondeu.
+    const runIds = [...new Set(rows.map((r) => r.run_id).filter((v): v is string => !!v))];
+    const calls = runIds.length
+      ? await this.prisma.aiToolCall.findMany({
+          where: { runId: { in: runIds }, toolName: { in: ORDER_TOOLS } },
+          orderBy: { createdAt: 'asc' },
+          select: { runId: true, toolName: true, input: true, output: true, error: true },
+        })
+      : [];
+    const lookupsByRun = new Map<string, Array<ReturnType<typeof toLookup>>>();
+    for (const c of calls) {
+      const list = lookupsByRun.get(c.runId) ?? [];
+      list.push(toLookup(c));
+      lookupsByRun.set(c.runId, list);
+    }
 
-    const items = calls.map((c) => {
-      const trigger = c.run.triggerMessageId ? triggerById.get(c.run.triggerMessageId) : undefined;
-      const reply = replyByRun.get(c.run.id);
-      const result = summarizeOutput(c.output, c.error);
-      const input = (c.input ?? {}) as Record<string, unknown>;
+    const items = rows.map((r) => {
+      const meta = (r.metadata ?? {}) as { transcription?: { text?: unknown } };
+      const transcript = typeof meta.transcription?.text === 'string' ? meta.transcription.text : null;
+      const status: RequestStatus = !r.reply_at ? 'pending' : r.run_id ? 'answered-ai' : 'answered-human';
       return {
-        id: c.id,
-        tool: c.toolName,
-        orderId: typeof input.orderId === 'string' || typeof input.orderId === 'number'
-          ? String(input.orderId).replace(/^#/, '')
-          : result.orders[0]?.id ?? null,
-        createdAt: c.createdAt,
-        outcome: result.outcome,
-        orders: result.orders,
-        conversation: {
-          id: c.run.conversation.id,
-          isGroup: c.run.conversation.isGroup,
-          name: c.run.conversation.contact?.name ?? null,
-          channel: c.run.conversation.channel?.name ?? null,
-        },
-        askedBy: trigger?.senderName ?? null,
-        question: trigger ? messageText(trigger.content) : null,
-        reply: reply ? messageText(reply.content) : null,
-        repliedAt: reply?.created_at ?? null,
+        id: r.id,
+        createdAt: r.created_at,
+        askedBy: r.sender_name,
+        text: messageText(r.content) ?? (transcript ? `🎙 ${transcript.slice(0, 500)}` : null),
+        group: { id: r.conversation_id, name: r.group_name, partner: r.partner },
+        status,
+        reply: r.reply_at
+          ? { text: messageText(r.reply_content), at: r.reply_at, by: r.run_id ? 'IA' : r.reply_sender }
+          : null,
+        lookups: r.run_id ? lookupsByRun.get(r.run_id) ?? [] : [],
       };
     });
 
-    return { items, total, page, limit };
+    return { items, total: countRows[0]?.total ?? 0, page, limit };
   }
 
   private channelFilter(access: ChannelAccess): Prisma.ConversationWhereInput {
@@ -251,6 +263,19 @@ export function summarizeOutput(
   const list = Array.isArray(obj.pedidos) ? obj.pedidos : value;
   const orders = parseOrders(list).map((o) => ({ id: o.id, status: o.status }));
   return { outcome: orders.length ? 'found' : 'unknown', orders };
+}
+
+/** Uma consulta de pedido feita pela IA (ferramenta + resultado). */
+function toLookup(c: { toolName: string; input: unknown; output: unknown; error: string | null }) {
+  const result = summarizeOutput(c.output, c.error);
+  const input = (c.input ?? {}) as Record<string, unknown>;
+  const asked = typeof input.orderId === 'string' || typeof input.orderId === 'number' ? String(input.orderId).replace(/^#/, '') : null;
+  return {
+    tool: c.toolName,
+    orderId: asked ?? result.orders[0]?.id ?? null,
+    outcome: result.outcome,
+    status: result.orders.find((o) => o.id === asked)?.status ?? result.orders[0]?.status ?? null,
+  };
 }
 
 function messageText(content: unknown): string | null {

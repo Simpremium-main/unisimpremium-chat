@@ -8,7 +8,7 @@ import {
   Search,
   Users,
   MessageSquare,
-  PackageSearch,
+  ClipboardList,
   Bot,
   BotOff,
   RefreshCw,
@@ -25,7 +25,7 @@ import {
 
 const NO_PARTNER = '__none__';
 
-/** Grupos de WhatsApp em que o número está, com o parceiro, a última mensagem e as consultas de pedido. */
+/** Grupos de WhatsApp em que o número está, com o parceiro, a última mensagem e as solicitações à IA. */
 export default function GroupsPage() {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
@@ -73,7 +73,7 @@ export default function GroupsPage() {
 
   const active = groups.filter((g) => !g.left).length;
   const withoutPartner = groups.filter((g) => !g.left && !g.partner).length;
-  const totalQueries = groups.reduce((n, g) => n + g.orderQueries, 0);
+  const totalRequests = groups.reduce((n, g) => n + g.requests, 0);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col p-6">
@@ -84,7 +84,7 @@ export default function GroupsPage() {
             <p className="mt-1 text-sm text-zinc-500">
               {isLoading
                 ? 'Carregando...'
-                : `${active} grupos · ${withoutPartner} sem parceiro · ${totalQueries} consultas de pedido`}
+                : `${active} grupos · ${withoutPartner} sem parceiro · ${totalRequests} solicitações`}
             </p>
           </div>
           <button
@@ -207,12 +207,12 @@ function GroupCard({ group: g, onSaved }: { group: MonitoredGroup; onSaved: () =
               <MessageSquare className="h-3.5 w-3.5" /> Mensagens
             </Link>
             <Link
-              href={`/order-queries?conversationId=${g.id}`}
+              href={`/requests?conversationId=${g.id}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
-              <PackageSearch className="h-3.5 w-3.5" /> {g.orderQueries} consultas
+              <ClipboardList className="h-3.5 w-3.5" /> {g.requests} solicitações
             </Link>
-            {g.lastOrderQueryAt && <span className="text-xs text-zinc-400">última {formatWhen(g.lastOrderQueryAt)}</span>}
+            {g.lastRequestAt && <span className="text-xs text-zinc-400">última {formatWhen(g.lastRequestAt)}</span>}
           </div>
         </div>
       </div>

@@ -15,12 +15,33 @@ export interface MonitoredGroup {
     direction: 'INBOUND' | 'OUTBOUND';
     createdAt: string;
   } | null;
-  orderQueries: number;
-  lastOrderQueryAt: string | null;
+  requests: number;
+  lastRequestAt: string | null;
   partner: string | null;
   participants: number | null;
   left: boolean;
   syncedAt: string | null;
+}
+
+export type QueryOutcome = 'found' | 'not-found' | 'unverified' | 'error' | 'unknown';
+export type RequestStatus = 'answered-ai' | 'answered-human' | 'pending';
+
+export interface GroupRequest {
+  id: string;
+  createdAt: string;
+  askedBy: string | null;
+  text: string | null;
+  group: { id: string; name: string | null; partner: string | null };
+  status: RequestStatus;
+  reply: { text: string | null; at: string; by: string | null } | null;
+  lookups: Array<{ tool: string; orderId: string | null; outcome: QueryOutcome; status: string | null }>;
+}
+
+export interface RequestsPage {
+  items: GroupRequest[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface GroupSyncResult {
@@ -29,29 +50,6 @@ export interface GroupSyncResult {
   created: number;
   left: number;
   errors: Array<{ channel: string; message: string }>;
-}
-
-export type QueryOutcome = 'found' | 'not-found' | 'unverified' | 'error' | 'unknown';
-
-export interface OrderQuery {
-  id: string;
-  tool: string;
-  orderId: string | null;
-  createdAt: string;
-  outcome: QueryOutcome;
-  orders: Array<{ id: string; status: string | null }>;
-  conversation: { id: string; isGroup: boolean; name: string | null; channel: string | null };
-  askedBy: string | null;
-  question: string | null;
-  reply: string | null;
-  repliedAt: string | null;
-}
-
-export interface OrderQueriesPage {
-  items: OrderQuery[];
-  total: number;
-  page: number;
-  limit: number;
 }
 
 export const groupMonitorService = {
@@ -66,11 +64,19 @@ export const groupMonitorService = {
   async setPartner(id: string, partner: string | null): Promise<void> {
     await api.patch(`/group-monitor/groups/${id}/partner`, { partner });
   },
-  async orderQueries(params: { conversationId?: string; orderId?: string; page?: number }): Promise<OrderQueriesPage> {
-    const { data } = await api.get('/group-monitor/order-queries', {
+  async requests(params: {
+    conversationId?: string;
+    q?: string;
+    partner?: string;
+    status?: RequestStatus | '';
+    page?: number;
+  }): Promise<RequestsPage> {
+    const { data } = await api.get('/group-monitor/requests', {
       params: {
         ...(params.conversationId ? { conversationId: params.conversationId } : {}),
-        ...(params.orderId ? { orderId: params.orderId } : {}),
+        ...(params.q ? { q: params.q } : {}),
+        ...(params.partner ? { partner: params.partner } : {}),
+        ...(params.status ? { status: params.status } : {}),
         page: params.page ?? 1,
       },
     });

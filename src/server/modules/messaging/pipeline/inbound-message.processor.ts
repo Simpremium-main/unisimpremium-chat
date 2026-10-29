@@ -578,6 +578,14 @@ export class InboundMessageProcessor extends WorkerHost {
     });
     if (!conversation) return;
 
+    // Grupo: só quando a mensagem é com a IA (menção, resposta a ela ou
+    // pedido). Essa mensagem vira uma "solicitação" (tela Solicitações),
+    // mesmo com a IA desligada.
+    if (conversation.isGroup && !(await this.markGroupRequest(triggerMessageId))) {
+      this.logger.debug(`AI skipped for group conv ${conversationId}: not addressed`);
+      return;
+    }
+
     const decision = await this.agentRouter.shouldHandle(conversation);
     if (!decision.handle) {
       this.logger.debug(
@@ -596,12 +604,6 @@ export class InboundMessageProcessor extends WorkerHost {
       this.logger.debug(
         `AI skipped: message type=${triggerMessage.type} not actionable`,
       );
-      return;
-    }
-
-    // Grupo: só quando a mensagem é com a IA (menção, resposta a ela ou pedido).
-    if (conversation.isGroup && !(await this.isGroupTrigger(triggerMessage))) {
-      this.logger.debug(`AI skipped for group conv ${conversationId}: not addressed`);
       return;
     }
 
@@ -754,11 +756,34 @@ export class InboundMessageProcessor extends WorkerHost {
     }
   }
 
+  /** Marca a mensagem do grupo como solicitação se ela for com a IA. */
+  private async markGroupRequest(messageId: string): Promise<boolean> {
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.direction !== MessageDirection.INBOUND) return false;
+    if (NON_TRIGGERING_MESSAGE_TYPES.includes(message.type)) return false;
+    if (!(await this.isGroupTrigger(message))) return false;
+    const meta = (message.metadata ?? {}) as Record<string, unknown>;
+    if (meta.groupRequest !== true) {
+      await this.prisma.message.update({
+        where: { id: message.id },
+        data: { metadata: { ...meta, groupRequest: true } as Prisma.InputJsonValue },
+      });
+    }
+    return true;
+  }
+
   /** A mensagem do grupo é com a IA? (ver group-trigger.ts) */
   private async isGroupTrigger(message: Message): Promise<boolean> {
     const content = (message.content ?? {}) as { text?: unknown; caption?: unknown };
-    const text = [content.text, content.caption].find((v) => typeof v === 'string') as string | undefined;
-    const meta = (message.metadata ?? {}) as { rawPayload?: unknown; replyTo?: { externalMessageId?: string } | null };
+    const meta = (message.metadata ?? {}) as {
+      rawPayload?: unknown;
+      replyTo?: { externalMessageId?: string } | null;
+      transcription?: { text?: unknown } | null;
+    };
+    // Áudio: vale o texto transcrito.
+    const text = [content.text, content.caption, meta.transcription?.text].find(
+      (v) => typeof v === 'string',
+    ) as string | undefined;
     const quotedId = meta.replyTo?.externalMessageId;
     const repliesToUs = quotedId
       ? (await this.prisma.message.count({

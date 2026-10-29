@@ -10,6 +10,7 @@ const ROUTE_PAGES: Array<[string, string]> = [
   ['/settings', 'settings'],
   ['/inbox', 'inbox'],
   ['/groups', 'inbox'],
+  ['/requests', 'inbox'],
   ['/order-queries', 'inbox'],
   ['/contacts', 'contacts'],
   ['/pipelines', 'pipelines'],

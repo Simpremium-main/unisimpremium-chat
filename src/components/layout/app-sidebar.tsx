@@ -8,7 +8,7 @@ import {
   Building2,
   ChevronUp,
   UsersRound,
-  PackageSearch,
+  ClipboardList,
   Sun,
   Moon,
   Monitor,
@@ -44,12 +44,12 @@ import {
   DropdownDivider,
 } from '@/components/ui/dropdown';
 
-// UniSimpremium: grupos de WhatsApp + pedidos consultados pela IA.
+// UniSimpremium: grupos de WhatsApp + solicitações feitas à IA neles.
 // Fora do menu (páginas continuam no endereço): Projetos, Automações,
 // Chatbot, Pipelines e Tags.
 const navItems = [
   { href: '/groups', label: 'Grupos', icon: UsersRound, page: 'inbox' },
-  { href: '/order-queries', label: 'Pedidos consultados', icon: PackageSearch, page: 'inbox' },
+  { href: '/requests', label: 'Solicitações', icon: ClipboardList, page: 'inbox' },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, page: 'dashboard' },
 ];
 

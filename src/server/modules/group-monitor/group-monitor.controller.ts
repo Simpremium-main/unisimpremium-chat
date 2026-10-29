@@ -41,26 +41,29 @@ export class GroupMonitorController {
     return this.service.setPartner(orgId, access, id, body.partner ?? null);
   }
 
-  @Get('order-queries')
-  @ApiOperation({ summary: 'Pedidos consultados pela IA' })
+  @Get('requests')
+  @ApiOperation({ summary: 'Solicitações feitas à IA nos grupos' })
   @ApiQuery({ name: 'conversationId', required: false })
-  @ApiQuery({ name: 'orderId', required: false })
-  @ApiQuery({ name: 'all', required: false, description: 'true = inclui conversas individuais' })
+  @ApiQuery({ name: 'q', required: false, description: 'Texto ou nome de quem pediu' })
+  @ApiQuery({ name: 'partner', required: false })
+  @ApiQuery({ name: 'status', required: false, enum: ['answered-ai', 'answered-human', 'pending'] })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
-  orderQueries(
+  requests(
     @CurrentOrg('id') orgId: string,
     @CurrentChannelAccess() access: ChannelAccess,
     @Query('conversationId') conversationId?: string,
-    @Query('orderId') orderId?: string,
-    @Query('all') all?: string,
+    @Query('q') q?: string,
+    @Query('partner') partner?: string,
+    @Query('status') status?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.service.orderQueries(orgId, access, {
+    return this.service.requests(orgId, access, {
       conversationId: conversationId || undefined,
-      orderId: orderId || undefined,
-      groupsOnly: all !== 'true',
+      q: q || undefined,
+      partner: partner || undefined,
+      status: status === 'answered-ai' || status === 'answered-human' || status === 'pending' ? status : undefined,
       page: page ? Number(page) || 1 : 1,
       limit: limit ? Number(limit) || 50 : 50,
     });
