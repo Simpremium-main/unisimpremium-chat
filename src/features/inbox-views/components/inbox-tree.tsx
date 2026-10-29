@@ -37,7 +37,7 @@ import { useSocket } from '@/features/inbox/hooks/use-socket';
 import { setAppBadge } from '@/features/push/push';
 
 /** Inboxes que somam no número do ícone do app (as mesmas do push). */
-const APP_BADGE_INBOXES = ['Não respondidas', 'IA para Humano', 'IA Aguardando'];
+const APP_BADGE_INBOXES = ['Não respondidas'];
 
 const VIEW_ICON: Record<string, any> = {
   Inbox,
@@ -126,7 +126,7 @@ export function InboxTree() {
     staleTime: 60000,
   });
 
-  // Bolinha vermelha com o total em "Não respondidas", "IA Ativo", "IA para Humano" e "IA Aguardando".
+  // Bolinha vermelha com o total em "Não respondidas".
   const { data: counts = {} } = useQuery({
     queryKey: ['inbox-view-counts'],
     queryFn: () => inboxViewsService.counts(),

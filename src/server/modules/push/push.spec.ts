@@ -109,28 +109,15 @@ describe('push no celular: quem recebe', () => {
 });
 
 describe('InboxViewsService.pushSummary', () => {
-  it('soma as 3 inboxes de push e aponta a primeira (na ordem do menu) que tem a conversa', async () => {
-    const views = [
-      { id: 'v1', name: 'Não respondidas', filters: {}, metadata: { builtin: true } },
-      { id: 'v2', name: 'IA para Humano', filters: { aiToHuman: true }, metadata: { builtin: true } },
-      { id: 'v3', name: 'IA Aguardando', filters: { aiWaiting: true }, metadata: { builtin: true } },
-    ];
+  it('push só da "Não respondidas" (as inboxes da IA saíram)', async () => {
+    const views = [{ id: 'v1', name: 'Não respondidas', filters: {}, metadata: { builtin: true } }];
     const prisma: any = { inboxView: { findMany: jest.fn(async () => views) } };
     const conversations: any = {
-      countInbox: jest.fn(async (_o: string, q: any) => {
-        const inConv = !!q.conversationIds;
-        if (q.aiToHuman) return inConv ? 1 : 2;
-        if (q.aiWaiting) return inConv ? 0 : 1;
-        return inConv ? 0 : 5;
-      }),
+      countInbox: jest.fn(async (_o: string, q: any) => (q.conversationIds ? 1 : 5)),
     };
     const out = await new InboxViewsService(prisma, conversations).pushSummary('o1', 'u1', 'ALL', 'c1');
-    expect(out).toEqual({ total: 8, view: { id: 'v2', name: 'IA para Humano' } });
-    expect(prisma.inboxView.findMany.mock.calls[0][0].where.name.in).toEqual([
-      'Não respondidas',
-      'IA para Humano',
-      'IA Aguardando',
-    ]);
+    expect(out).toEqual({ total: 5, view: { id: 'v1', name: 'Não respondidas' } });
+    expect(prisma.inboxView.findMany.mock.calls[0][0].where.name.in).toEqual(['Não respondidas']);
   });
 });
 

@@ -57,30 +57,6 @@ export class InboxViewsService {
       adopt: /^n[aã]o\s+respondid[ao]s?$/i,
     },
     {
-      // IA ativa (mesmas regras da bolinha "IA" da lista) em conversa aberta.
-      name: 'IA Ativo',
-      icon: 'Bot',
-      color: 'red',
-      filters: { aiActive: true, statuses: ['PENDING', 'BOT', 'OPEN', 'WAITING'] },
-      adopt: /^ia\s+ativ[ao]s?$/i,
-    },
-    {
-      // Passou da IA/robô pro atendente e ninguém respondeu ainda.
-      name: 'IA para Humano',
-      icon: 'UserRoundCheck',
-      color: 'red',
-      filters: { aiToHuman: true, statuses: ['PENDING', 'BOT', 'OPEN', 'WAITING'] },
-      adopt: /^ia\s+(para|p\/|pra)\s+humanos?$/i,
-    },
-    {
-      // IA pediu ajuda e espera o admin orientar (Jarvis → Aprendizado).
-      name: 'IA Aguardando',
-      icon: 'Hourglass',
-      color: 'amber',
-      filters: { aiWaiting: true, statuses: ['PENDING', 'BOT', 'OPEN', 'WAITING'] },
-      adopt: /^ia\s+aguardando$/i,
-    },
-    {
       name: 'Encerrada',
       icon: 'CheckCircle',
       color: '#6b7280',
@@ -94,8 +70,11 @@ export class InboxViewsService {
     { from: 'Não lidas', to: UNANSWERED, filters: UNANSWERED_FILTERS },
   ];
 
-  /** Builtins que saíram do produto — apagados na próxima listagem. */
-  private static readonly RETIRED_BUILTINS = ['Archived'];
+  /**
+   * Builtins que saíram do produto — apagados na próxima listagem. As
+   * inboxes da IA saíram no UniSimpremium (atendimento em grupos).
+   */
+  private static readonly RETIRED_BUILTINS = ['Archived', 'IA Ativo', 'IA para Humano', 'IA Aguardando'];
 
   async list(organizationId: string, userId: string) {
     await this.ensureBuiltinViews(organizationId, userId);
@@ -142,8 +121,8 @@ export class InboxViewsService {
       existing = existing.map((v) => (v.id === old.id ? { ...v, name: r.to, filters } : v));
     }
 
-    // Quem já criou à mão uma inbox com o nome de uma builtin ("Encerrada",
-    // "IA Ativo") não ganha uma duplicada: a dele vira a builtin, com o
+    // Quem já criou à mão uma inbox com o nome de uma builtin ("Encerrada")
+    // não ganha uma duplicada: a dele vira a builtin, com o
     // filtro e o ícone dela (mantém os demais filtros que tinha).
     for (const b of InboxViewsService.BUILTIN_VIEWS) {
       if (!b.adopt) continue;
@@ -173,39 +152,10 @@ export class InboxViewsService {
     if (missing.length > 0) {
       await this.createBuiltins(organizationId, userId, missing);
     }
-    await this.placeAiActiveAboveClosed(organizationId, userId);
-    await this.placeAfter(organizationId, userId, 'IA para Humano', 'IA Ativo', 'aiToHumanPlaced');
-    await this.placeAfter(organizationId, userId, 'IA Aguardando', 'IA para Humano', 'aiWaitingPlaced');
-  }
-
-  /**
-   * Coloca a builtin `name` logo depois de `after` — uma vez só por usuário
-   * (marca `flag` na metadata), pra não desfazer uma reordenação manual.
-   */
-  private async placeAfter(organizationId: string, userId: string, name: string, after: string, flag: string) {
-    const views = await this.prisma.inboxView.findMany({
-      where: { organizationId, userId },
-      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, name: true, metadata: true },
-    });
-    const builtin = (n: string) => views.find((v) => v.name === n && (v.metadata as any)?.builtin === true);
-    const view = builtin(name);
-    const anchor = builtin(after);
-    if (!view || !anchor || (view.metadata as any)?.[flag]) return;
-
-    const ids = views.map((v) => v.id).filter((id) => id !== view.id);
-    ids.splice(ids.indexOf(anchor.id) + 1, 0, view.id);
-    await this.prisma.$transaction([
-      ...ids.map((id, idx) => this.prisma.inboxView.update({ where: { id }, data: { order: idx } })),
-      this.prisma.inboxView.update({
-        where: { id: view.id },
-        data: { metadata: { ...((view.metadata as object) ?? {}), [flag]: true } as object },
-      }),
-    ]);
   }
 
   /** Inboxes com bolinha de contagem no menu. */
-  private static readonly COUNTED_BUILTINS = [UNANSWERED, 'IA Ativo', 'IA para Humano', 'IA Aguardando'];
+  private static readonly COUNTED_BUILTINS = [UNANSWERED];
 
   /**
    * Quantas conversas há em cada inbox com bolinha (id da inbox → total).
@@ -278,7 +228,7 @@ export class InboxViewsService {
   }
 
   /** Inboxes que mandam push pro celular (e somam no número do ícone). */
-  static readonly PUSH_BUILTINS = [UNANSWERED, 'IA para Humano', 'IA Aguardando'];
+  static readonly PUSH_BUILTINS = [UNANSWERED];
 
   /**
    * Push do celular: em qual das inboxes de push a conversa está agora (a
@@ -320,33 +270,6 @@ export class InboxViewsService {
       }
     }
     return { total, view };
-  }
-
-  /**
-   * "IA Ativo" logo acima de "Encerrada" — uma vez só por usuário (marca
-   * `aiActivePlaced` na metadata), pra não desfazer uma reordenação manual.
-   */
-  private async placeAiActiveAboveClosed(organizationId: string, userId: string) {
-    const views = await this.prisma.inboxView.findMany({
-      where: { organizationId, userId },
-      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, name: true, metadata: true },
-    });
-    const builtin = (name: string) =>
-      views.find((v) => v.name === name && (v.metadata as any)?.builtin === true);
-    const ai = builtin('IA Ativo');
-    const closed = builtin('Encerrada');
-    if (!ai || !closed || (ai.metadata as any)?.aiActivePlaced) return;
-
-    const ids = views.map((v) => v.id).filter((id) => id !== ai.id);
-    ids.splice(ids.indexOf(closed.id), 0, ai.id);
-    await this.prisma.$transaction([
-      ...ids.map((id, idx) => this.prisma.inboxView.update({ where: { id }, data: { order: idx } })),
-      this.prisma.inboxView.update({
-        where: { id: ai.id },
-        data: { metadata: { ...((ai.metadata as object) ?? {}), aiActivePlaced: true } as object },
-      }),
-    ]);
   }
 
   private async createBuiltins(
@@ -535,7 +458,7 @@ export class InboxViewsService {
     else if (ov.groups === 'include') finalKind = undefined;
 
     // Inboxes fixas valem para todos os canais: um canal salvo numa inbox
-    // antiga adotada ("IA Ativo" feita à mão) escondia os números novos.
+    // antiga adotada (feita à mão) escondia os números novos.
     const finalChannelIds = ov.channelId
       ? [ov.channelId]
       : builtin
@@ -574,19 +497,13 @@ export class InboxViewsService {
       aiToHuman: filters.aiToHuman === true || undefined,
       aiWaiting: filters.aiWaiting === true || undefined,
       // Regras das builtins valem pelo nome (linhas antigas não têm o filtro salvo).
-      // Conversa da IA fica numa inbox só: Aguardando > para Humano > Ativo.
+      // "Não respondidas" não mostra o que a IA está atendendo; as transferidas
+      // para humano e as que esperam o admin entram (sem inbox própria da IA).
       excludeAiActive:
         filters.excludeAiActive === true || filters.hideAi === true || builtin === UNANSWERED || undefined,
-      // "Não respondidas" também não mostra o que já está numa inbox da IA
-      // (transferida sem resposta de atendente, ou esperando o admin).
       // Inbox criada à mão com "esconder IA" também não mostra as transferidas.
-      excludeAiToHuman: filters.hideAi === true || builtin === 'IA Ativo' || builtin === UNANSWERED || undefined,
-      excludeAiWaiting:
-        filters.hideAi === true ||
-        builtin === 'IA Ativo' ||
-        builtin === 'IA para Humano' ||
-        builtin === UNANSWERED ||
-        undefined,
+      excludeAiToHuman: filters.hideAi === true || undefined,
+      excludeAiWaiting: filters.hideAi === true || undefined,
     };
   }
 }

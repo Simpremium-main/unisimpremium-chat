@@ -204,7 +204,7 @@ function ThemeOptions() {
 
 /**
  * Notificações no celular: conversa nova ou mensagem nova em "Não
- * respondidas", "IA para Humano" ou "IA Aguardando", com o total no ícone.
+ * respondidas", com o total no ícone.
  */
 function PushMenuItem() {
   const { state, busy, enable, disable } = usePushNotifications();

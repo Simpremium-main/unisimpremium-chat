@@ -383,11 +383,7 @@ export function ConversationList({ activeId, onSelect, viewId, tagId }: Conversa
       // Inbox "Aberto" (sem view) = tudo que não foi fechado; as fechadas
       // ficam na inbox "Encerrada".
       if (!viewId) params.status = OPEN_STATUSES.join(',');
-      // ...e sem as conversas da IA (ficam em "IA Ativo" / "IA Aguardando").
-      // Na busca mostra tudo, pra achar qualquer cliente.
-      if (!viewId && !tagId && !debouncedSearch) params.hideAi = 'true';
-      // Tag do menu: tira só as que a IA está atendendo (as não respondidas ficam).
-      if (!viewId && tagId && !debouncedSearch) params.noAi = 'true';
+      // Sem inboxes da IA: "Aberto" mostra também as conversas que ela atende.
       // Filtros que unificam por grupo (segmento OU projeto) — são sempre
       // grupos: força groups=only e ignora o filtro de canal. Segmento tem
       // precedência se ambos estiverem ativos.

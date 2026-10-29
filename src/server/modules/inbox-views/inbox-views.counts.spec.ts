@@ -29,7 +29,10 @@ describe('bolinhas do menu (contagem das inboxes)', () => {
     expect(new Set(memos).size).toBe(1);
     // Mesmas regras de exclusão da listagem.
     const unanswered = conversations.countInbox.mock.calls.find((c: any[]) => c[1].unansweredOnly)[1];
-    expect(unanswered).toMatchObject({ excludeAiActive: true, excludeAiToHuman: true, excludeAiWaiting: true });
+    // Sem as que a IA atende; transferidas e as que esperam o admin entram.
+    expect(unanswered).toMatchObject({ excludeAiActive: true });
+    expect(unanswered.excludeAiToHuman).toBeUndefined();
+    expect(unanswered.excludeAiWaiting).toBeUndefined();
     expect(unanswered.unreadOnly).toBe(false);
   });
 
@@ -119,7 +122,7 @@ describe('inbox "Não respondidas" (antes "Não lidas")', () => {
     expect(createdNames).not.toContain('Não respondidas');
   });
 
-  it('pelo nome: só não respondidas, sem as da IA, e não depende de leitura', () => {
+  it('pelo nome: só não respondidas, sem as que a IA atende, e não depende de leitura', () => {
     const svc = new InboxViewsService({} as any, {} as any);
     const q = (svc as any).viewQuery(
       { name: 'Não respondidas', filters: { statuses: ['OPEN'] }, metadata: { builtin: true } },
@@ -129,10 +132,10 @@ describe('inbox "Não respondidas" (antes "Não lidas")', () => {
       unansweredOnly: true,
       unreadOnly: false,
       excludeAiActive: true,
-      excludeAiToHuman: true,
-      excludeAiWaiting: true,
       status: 'OPEN',
     });
+    expect(q.excludeAiToHuman).toBeUndefined();
+    expect(q.excludeAiWaiting).toBeUndefined();
   });
 });
 
@@ -183,9 +186,5 @@ describe('conversa em "IA para Humano" fica só nessa inbox', () => {
     const svc = new InboxViewsService({} as any, {} as any);
     const custom = (svc as any).viewQuery({ name: 'Minha', filters: { hideAi: true }, metadata: {} }, 'u1');
     expect(custom).toMatchObject({ excludeAiActive: true, excludeAiWaiting: true, excludeAiToHuman: true });
-    // A própria "IA para Humano" continua mostrando as transferidas (sem as que esperam o admin).
-    const own = (svc as any).viewQuery({ name: 'IA para Humano', filters: { aiToHuman: true }, metadata: { builtin: true } }, 'u1');
-    expect(own).toMatchObject({ aiToHuman: true, excludeAiWaiting: true });
-    expect(own.excludeAiToHuman).toBeUndefined();
   });
 });
