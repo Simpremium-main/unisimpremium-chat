@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  LayoutDashboard,
+  MessageSquare,
   Settings,
   LogOut,
   ChevronsUpDown,
@@ -19,7 +19,6 @@ import {
 import { toast } from 'sonner';
 import { usePushNotifications, removeThisDevice, sendTestPush } from '@/features/push/push';
 import { useTheme } from 'next-themes';
-import { InboxTree } from '@/features/inbox-views/components/inbox-tree';
 import { JarvisTree } from '@/features/ai-agents/components/jarvis-tree';
 
 import { useAuthStore } from '@/stores/auth-store';
@@ -44,13 +43,14 @@ import {
   DropdownDivider,
 } from '@/components/ui/dropdown';
 
-// Uni: grupos de WhatsApp + solicitações feitas à IA neles.
-// Fora do menu (páginas continuam no endereço): Projetos, Automações,
-// Chatbot, Pipelines e Tags.
+// Uni: grupos de WhatsApp + solicitações feitas à IA neles. Menu nesta
+// ordem: Mensagens (inbox só de grupos), Grupos, Solicitações e Jarvis.
+// Fora do menu (páginas continuam no endereço): Dashboard, inboxes salvas,
+// Projetos, Automações, Chatbot, Pipelines e Tags.
 const navItems = [
+  { href: '/inbox', label: 'Mensagens', icon: MessageSquare, page: 'inbox' },
   { href: '/groups', label: 'Grupos', icon: UsersRound, page: 'inbox' },
   { href: '/requests', label: 'Solicitações', icon: ClipboardList, page: 'inbox' },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, page: 'dashboard' },
 ];
 
 export function AppSidebar() {
@@ -123,7 +123,6 @@ export function AppSidebar() {
               <SidebarLabel>{item.label}</SidebarLabel>
             </SidebarItem>
           ))}
-          {canPage('inbox') && <InboxTree />}
           {canPage('jarvis') && <JarvisTree />}
         </SidebarSection>
 

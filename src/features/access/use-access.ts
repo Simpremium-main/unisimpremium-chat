@@ -23,7 +23,7 @@ const ROUTE_PAGES: Array<[string, string]> = [
 
 /** Ordem de preferência da página inicial quando a atual não é permitida. */
 const LANDING: Array<[string, string]> = [
-  ['inbox', '/groups'],
+  ['inbox', '/inbox'],
   ['dashboard', '/dashboard'],
   ['contacts', '/contacts'],
   ['pipelines', '/pipelines'],

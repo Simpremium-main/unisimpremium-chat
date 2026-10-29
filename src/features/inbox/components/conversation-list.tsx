@@ -108,12 +108,6 @@ const filterOptions: { label: string; value: ListFilter; icon: React.ElementType
     icon: MailOpen,
     description: 'Apenas com mensagens novas',
   },
-  {
-    label: 'Grupos',
-    value: 'groups',
-    icon: Users,
-    description: 'Inclui conversas de grupos. Desmarcado = esconde.',
-  },
 ];
 
 interface ConversationListProps {
@@ -398,14 +392,8 @@ export function ConversationList({ activeId, onSelect, viewId, tagId }: Conversa
           params.responsibleUserId = currentUserId;
         params.groups = 'only';
       } else {
-        // groups: dentro de view, só override se user MARCOU "Grupos"
-        // explicitamente (vira 'only' pra forçar). Fora de view, default
-        // esconde grupos (regra do JP).
-        if (viewId) {
-          if (showGroups) params.groups = 'only';
-        } else {
-          if (!showGroups) params.groups = 'exclude';
-        }
+        // Uni: atendimento só em grupos de WhatsApp — Mensagens lista apenas grupos.
+        params.groups = 'only';
         // Dentro de uma view, o canal escolhido aqui sobrepõe o da view.
         if (selectedChannelId) params.channelId = selectedChannelId;
       }
