@@ -37,6 +37,13 @@ describe('groupShouldTrigger', () => {
     expect(groupShouldTrigger({ text: '@Fulano oi', rawPayload: raw, ownNumber: own })).toBe(false);
   });
 
+  it('responde ICCID e assuntos de linha', () => {
+    expect(groupShouldTrigger({ text: '89012807332692737746' })).toBe(true);
+    expect(groupShouldTrigger({ text: 'cliente 8901 2807 3326 9273 7746 sem sinal' })).toBe(true);
+    expect(groupShouldTrigger({ text: 'precisa de recarga de 3 GB' })).toBe(true);
+    expect(groupShouldTrigger({ text: 'o eSIM não instala' })).toBe(true);
+  });
+
   it('responde quem cita mensagem nossa', () => {
     expect(groupShouldTrigger({ text: 'e agora?', repliesToUs: true })).toBe(true);
   });

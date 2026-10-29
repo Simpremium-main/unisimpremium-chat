@@ -125,6 +125,7 @@ describe('opções do agente e pacotes de ferramentas', () => {
     fake('moveRecoveryCard') as any,
     fake('enviarMensagensDoFluxo') as any,
     { tools: [fake('cotacao_chip'), fake('escalar_para_humano')] } as any,
+    { tools: [fake('uni_consultar_linha'), fake('uni_recarregar')] } as any,
     fake('addInternalNote') as any,
     fake('buscar_conhecimento') as any,
   );
@@ -163,6 +164,11 @@ describe('opções do agente e pacotes de ferramentas', () => {
     expect(
       registry.isAllowedForAgent('transferToHuman', AiAgentKind.WORKER, 'agent-1', readAgentOptions(params)),
     ).toBe(false);
+  });
+
+  it('pacote unimobile só para quem tem', () => {
+    expect(names(null)).not.toContain('uni_consultar_linha');
+    expect(names({ toolsets: ['unimobile'] })).toEqual(expect.arrayContaining(['uni_consultar_linha', 'uni_recarregar']));
   });
 
   it('lê e limita as opções', () => {

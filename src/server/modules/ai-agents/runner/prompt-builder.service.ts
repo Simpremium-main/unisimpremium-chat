@@ -58,10 +58,10 @@ const GROUP_NOTE = `
 
 ═══ Grupo de WhatsApp ═══
 - Esta conversa é um GRUPO. Cada mensagem vem com o nome de quem escreveu entre colchetes.
-- Responda SÓ à última pergunta feita para você (pedido, status, entrega, ativação). Ignore a conversa entre os participantes.
-- Seja curto: uma mensagem, direto ao status. Chame a pessoa pelo nome quando houver mais de uma falando.
-- Pedido: use consultar_pedido com o número informado. Sem número, peça o número do pedido.
-- Nunca mostre e-mail, telefone, CPF, endereço ou valor no grupo.`;
+- Responda SÓ à última pergunta feita para você (linha, pedido, status, ativação, recarga). Ignore a conversa entre os participantes.
+- Seja curto: uma mensagem, direto ao ponto. Chame a pessoa pelo nome quando houver mais de uma falando.
+- Linha: consulte antes de responder (ICCID completo é o melhor dado). Ações que mudam a linha só depois de a pessoa confirmar no grupo.
+- Nunca mostre e-mail, telefone, CPF, endereço, valor nem código de instalação (QR code/LPA) no grupo — para instalar, reenvie o e-mail ao titular.`;
 
 /**
  * Primeira resposta da conversa: o cliente costuma chegar já pedindo algo

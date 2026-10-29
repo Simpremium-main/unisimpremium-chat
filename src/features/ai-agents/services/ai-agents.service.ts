@@ -390,6 +390,8 @@ export function withToolModel(
 export interface AgentAdvancedOptions {
   standalonePrompt: boolean;
   simpremiumTools: boolean;
+  /** Pacote "unimobile": API de linhas da Uni Mobile. */
+  unimobileTools: boolean;
   maxRepliesPerRun: number;
 }
 
@@ -402,6 +404,7 @@ export function getAdvancedOptions(modelParams: Record<string, unknown> | null |
   return {
     standalonePrompt: modelParams?.promptMode === 'standalone',
     simpremiumTools: (toolsets ?? LEGACY_TOOLSETS).includes('simpremium'),
+    unimobileTools: (toolsets ?? LEGACY_TOOLSETS).includes('unimobile'),
     maxRepliesPerRun: Number.isInteger(max) && max >= 1 ? max : 1,
   };
 }
@@ -417,10 +420,10 @@ export function withAdvancedOptions(
 
   const current = Array.isArray(next.toolsets) ? (next.toolsets as string[]) : null;
   const base = current ?? LEGACY_TOOLSETS;
-  const toolsets = opts.simpremiumTools
-    ? Array.from(new Set([...base, 'simpremium']))
-    : base.filter((t) => t !== 'simpremium');
-  if (current || opts.simpremiumTools) next.toolsets = toolsets;
+  const toggle = (list: string[], name: string, on: boolean) =>
+    on ? Array.from(new Set([...list, name])) : list.filter((t) => t !== name);
+  const toolsets = toggle(toggle(base, 'simpremium', opts.simpremiumTools), 'unimobile', opts.unimobileTools);
+  if (current || opts.simpremiumTools || opts.unimobileTools) next.toolsets = toolsets;
 
   if (opts.maxRepliesPerRun > 1) next.maxRepliesPerRun = Math.min(opts.maxRepliesPerRun, 20);
   else delete next.maxRepliesPerRun;

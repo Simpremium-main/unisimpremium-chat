@@ -318,6 +318,22 @@ export function EditAgentDialog({
                   </span>
                 </span>
               </label>
+              <label className="flex cursor-pointer items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={advanced.unimobileTools}
+                  onChange={(e) => setAdvanced((a) => ({ ...a, unimobileTools: e.target.checked }))}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="block text-sm text-zinc-800 dark:text-zinc-200">Ferramentas Uni Mobile (linhas)</span>
+                  <span className="block text-[11px] text-zinc-500">
+                    Consulta de linha, consumo, cobertura, planos e compatibilidade; reenvio de e-mail e ativação
+                    com confirmação; recarga, extensão, alteração, cancelamento, reinício e novo pedido com
+                    aprovação da equipe (API em UNIMOBILE_API_URL / UNIMOBILE_API_TOKEN).
+                  </span>
+                </span>
+              </label>
               <div>
                 <label className="block text-sm text-zinc-800 dark:text-zinc-200">Mensagens por resposta</label>
                 <input

@@ -3,14 +3,18 @@
  * ela. Vale quando a mensagem:
  *  - menciona o número conectado (@número);
  *  - responde (cita) uma mensagem enviada por nós;
- *  - traz um número de pedido ou fala de pedido/status/entrega/rastreio.
+ *  - traz um número de pedido, um ICCID ou fala de pedido, linha, chip,
+ *    eSIM, recarga, ativação, cancelamento etc.
  */
 
 /** Número de pedido: 4 a 8 dígitos soltos ("#142458", "pedido 142458"). */
 const ORDER_NUMBER_RE = /(?:^|[^\d])#?\d{4,8}(?:[^\d]|$)/;
 
 const ORDER_WORDS_RE =
-  /\b(pedidos?|status|rastrei[oa]|rastreamento|rastrear|entregas?|entregue|enviad[oa]s?|despachad[oa]s?|ativa[çc][ãa]o|ativad[oa])\b/i;
+  /\b(pedidos?|status|rastrei[oa]|rastreamento|rastrear|entregas?|entregue|enviad[oa]s?|despachad[oa]s?|ativa[çc][ãa]o|ativad[oa]|ativar|linhas?|chips?|e-?sims?|iccid|recargas?|recarregar|cancelar|cancelamento|reiniciar|estender|prorrogar|cobertura|consumo|qr ?code)\b/i;
+
+/** ICCID da linha: 89 + 17 a 18 dígitos, com sufixo V/F opcional (espaços aceitos). */
+const ICCID_RE = /(?:^|[^\d])89(?:[\s.-]?\d){17,18}[VF]?(?:[^\d]|$)/i;
 
 /** Telefone, CEP, CPF e datas também têm 4+ dígitos — não contam como pedido. */
 const NOT_ORDER_RE = /\d{2}\/\d{2}|\d{5}-\d{3}|\d{3}\.\d{3}|\(\d{2}\)|\+\d{2}/;
@@ -33,7 +37,7 @@ export function groupShouldTrigger(input: GroupTriggerInput): boolean {
     if (new RegExp(`@\\d*${own.slice(-8)}(?!\\d)`).test(digitsInMentions(input.text))) return true;
   }
   const text = input.text ?? '';
-  if (ORDER_WORDS_RE.test(text)) return true;
+  if (ORDER_WORDS_RE.test(text) || ICCID_RE.test(text)) return true;
   return ORDER_NUMBER_RE.test(text) && !NOT_ORDER_RE.test(text);
 }
 

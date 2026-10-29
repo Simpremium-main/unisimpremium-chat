@@ -4,8 +4,20 @@ import { PrismaService } from '../../database/prisma.service';
 import type { ChannelAccess } from '../iam/channel-access/channel-access.service';
 import { parseOrders } from '../ai-agents/tools/simpremium/customer-orders.parse';
 
-/** Ferramentas da IA que consultam pedido (ver SimpremiumToolsService). */
+/** Ferramentas da IA que consultam ou mexem em pedido/linha (Pedido Central e Uni Mobile). */
 export const ORDER_TOOLS = [
+  'uni_consultar_linha',
+  'uni_consumo_linha',
+  'uni_historico_linha',
+  'uni_pacotes_recarga',
+  'uni_reenviar_email',
+  'uni_ativar_linha',
+  'uni_recarregar',
+  'uni_estender_plano',
+  'uni_alterar_pedido',
+  'uni_cancelar_pedido',
+  'uni_reiniciar_linha',
+  'uni_criar_pedido',
   'consultar_pedido',
   'pedidos_do_cliente',
   'status_entrega',
@@ -258,7 +270,14 @@ export function summarizeOutput(
   }
   if (!value || typeof value !== 'object') return { outcome: 'unknown', orders: [] };
   const obj = value as Record<string, unknown>;
-  if (obj.pedido_nao_encontrado || obj.nao_encontrado) return { outcome: 'not-found', orders: [] };
+  if (obj.pedido_nao_encontrado || obj.nao_encontrado || obj.encontrado === false) return { outcome: 'not-found', orders: [] };
+  // Uni Mobile: { encontrado, linhas: [{ iccid, status }] }.
+  if (Array.isArray(obj.linhas)) {
+    const orders = (obj.linhas as Array<Record<string, unknown>>)
+      .filter((l) => typeof l.iccid === 'string')
+      .map((l) => ({ id: String(l.iccid), status: typeof l.status === 'string' ? l.status : null }));
+    return { outcome: orders.length ? 'found' : 'unknown', orders };
+  }
   if (obj.identidade_nao_confirmada) return { outcome: 'unverified', orders: [] };
   const list = Array.isArray(obj.pedidos) ? obj.pedidos : value;
   const orders = parseOrders(list).map((o) => ({ id: o.id, status: o.status }));
@@ -269,7 +288,8 @@ export function summarizeOutput(
 function toLookup(c: { toolName: string; input: unknown; output: unknown; error: string | null }) {
   const result = summarizeOutput(c.output, c.error);
   const input = (c.input ?? {}) as Record<string, unknown>;
-  const asked = typeof input.orderId === 'string' || typeof input.orderId === 'number' ? String(input.orderId).replace(/^#/, '') : null;
+  const ref = input.orderId ?? input.iccid;
+  const asked = typeof ref === 'string' || typeof ref === 'number' ? String(ref).replace(/^#/, '').replace(/\s/g, '') : null;
   return {
     tool: c.toolName,
     orderId: asked ?? result.orders[0]?.id ?? null,

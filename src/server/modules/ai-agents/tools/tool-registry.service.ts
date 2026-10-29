@@ -22,6 +22,7 @@ import { AgendarReuniaoTool } from './builtin/agendar-reuniao.tool';
 import { MoveRecoveryCardTool } from './builtin/move-recovery-card.tool';
 import { SendFlowMessagesTool } from './builtin/send-flow-messages.tool';
 import { SIMPREMIUM_TOOLSET, SimpremiumToolsService } from './simpremium/simpremium-tools.service';
+import { UNIMOBILE_TOOLSET, UnimobileToolsService } from './unimobile/unimobile-tools.service';
 import { AgentOptions, hasToolset } from '../agents/agent-options';
 
 /** Pacote da ferramenta de fluxos: entra sozinho quando há fluxo com mensagens. */
@@ -71,6 +72,7 @@ export class ToolRegistry {
     moveRecoveryCard: MoveRecoveryCardTool,
     sendFlowMessages: SendFlowMessagesTool,
     simpremium: SimpremiumToolsService,
+    unimobile: UnimobileToolsService,
     addInternalNote: AddInternalNoteTool,
     searchKnowledge: SearchKnowledgeTool,
   ) {
@@ -102,6 +104,12 @@ export class ToolRegistry {
     // ações do atendimento, com os nomes do Simp-Atendimento.
     for (const tool of simpremium.tools) {
       this.register(tool, ['ORCHESTRATOR', 'WORKER'], undefined, SIMPREMIUM_TOOLSET);
+    }
+
+    // Uni Mobile (API de linhas eSIM/CHIP): consultas, ações confirmadas
+    // pelo cliente e ações com aprovação da equipe.
+    for (const tool of unimobile.tools) {
+      this.register(tool, ['ORCHESTRATOR', 'WORKER'], undefined, UNIMOBILE_TOOLSET);
     }
 
     // Client-ops (implementação): restritas aos agentes do env

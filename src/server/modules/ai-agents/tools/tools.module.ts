@@ -42,6 +42,8 @@ import { GroupNotifyService } from './client-ops/group-notify.service';
 import { ToolRegistry } from './tool-registry.service';
 import { HttpToolExecutorService } from './http-tool-executor.service';
 import { SqlToolExecutorService } from './sql-tool-executor.service';
+import { UnimobileClient } from './unimobile/unimobile.client';
+import { UnimobileToolsService } from './unimobile/unimobile-tools.service';
 import { ConfigModule } from '@nestjs/config';
 import { ConfirmationsModule } from '../confirmations/confirmations.module';
 import { SalesRecoveryModule } from '../../sales-recovery/sales-recovery.module';
@@ -88,6 +90,8 @@ import { SalesRecoveryModule } from '../../sales-recovery/sales-recovery.module'
     SendFlowMessagesTool,
     SimpremiumMcpClient,
     SimpremiumToolsService,
+    UnimobileClient,
+    UnimobileToolsService,
     AgentQuoteService,
     QuoteFollowupCron,
     IdleCloseCron,
@@ -97,6 +101,6 @@ import { SalesRecoveryModule } from '../../sales-recovery/sales-recovery.module'
     HttpToolExecutorService,
     SqlToolExecutorService,
   ],
-  exports: [ToolRegistry, HttpToolExecutorService, SqlToolExecutorService, CustomerOrdersService, AgentQuoteService],
+  exports: [ToolRegistry, HttpToolExecutorService, SqlToolExecutorService, CustomerOrdersService, AgentQuoteService, UnimobileToolsService],
 })
 export class ToolsModule {}
